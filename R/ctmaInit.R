@@ -6,16 +6,16 @@
 #' @param activeDirectory defines another active directory than the one used in \code{\link{ctmaPrep}}
 #' @param activateRPB set to TRUE to receive push messages with 'CoTiMA' notifications on your phone
 #' @param checkSingleStudyResults Displays estimates from single study ctsem models and waits for user input to continue. Useful to check estimates before they are saved.
-#' @param digits Number of digits used for rounding (in outputs)
-#' @param n.latent Number of latent variables of the model (hast to be specified)!
-#' @param n.manifest Number of manifest variables of the model (if left empty it will assumed to be identical with n.latent).
+#' @param digits number of digits used for rounding (in outputs)
+#' @param n.latent number of latent variables of the model (hast to be specified)!
+#' @param n.manifest number of manifest variables of the model (if left empty it will assumed to be identical with n.latent).
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
-#' @param manifestVars Define the error variances of the manifests with a single time point using R-type matrix with nrow=n.manifest & ncol=n.manifest.
-#' @param drift Labels for drift effects. Have to be either of the type V1toV2 or 0 for effects to be excluded, which is usually not recommended)
-#' @param indVarying Control for unobserved heterogeneity by having randomly (inter-individually) varying manifest means
-#' @param saveRawData Save (created pseudo) raw date. List: saveRawData$studyNumbers, $fileName, $row.names, col.names, $sep, $dec
-#' @param coresToUse If neg., the value is subtracted from available cores, else value = cores to use
-#' @param silentOverwrite Overwrite old files without asking
+#' @param manifestVars define the error variances of the manifests with a single time point using R-type matrix with nrow=n.manifest & ncol=n.manifest.
+#' @param drift labels for drift effects. Have to be either of the type V1toV2 or 0 for effects to be excluded, which is usually not recommended)
+#' @param indVarying control for unobserved heterogeneity by having randomly (inter-individually) varying manifest means
+#' @param saveRawData save (created pseudo) raw date. List: saveRawData$studyNumbers, $fileName, $row.names, col.names, $sep, $dec
+#' @param coresToUse if neg., the value is subtracted from available cores, else value = cores to use
+#' @param silentOverwrite overwrite old files without asking
 #' @param saveSingleStudyModelFit save the fit of single study ctsem models (could save a lot of time afterwards if the fit is loaded)
 #' @param loadSingleStudyModelFit load the fit of single study ctsem models
 #' @param scaleTI scale TI predictors
@@ -28,6 +28,7 @@
 #' @param verbose integer from 0 to 2. Higher values print more information during model fit - for debugging
 #' @param customPar logical. Leverages the first pass using priors and ensure that the drift diagonal cannot easily go too negative (could help with ctsem > 3.4)
 #' @param doPar parallel and multiple fitting if single studies
+#' @param useSV if TRUE (default) start values will be used if provided in the list of primary studies
 #'
 #' @importFrom  RPushbullet pbPost
 #' @importFrom  crayon red blue
@@ -90,7 +91,8 @@ ctmaInit <- function(
   iter=NULL,
   verbose=NULL,
   customPar=TRUE,
-  doPar=1
+  doPar=1,
+  useSV=TRUE
 )
 
 {  # begin function definition (until end of file)
@@ -245,16 +247,19 @@ ctmaInit <- function(
     if (!(is.null(primaryStudies$n.studies))) n.studies <- primaryStudies$n.studies; n.studies
 
     # delete empty list entries
-    tmp1 <- which(names(primaryStudies) == "n.studies"); tmp1
-    for (i in 1:(tmp1-1)) primaryStudies[[i]][[n.studies+1]] <- NULL
+    if (n.studies > 1) { # may not apply if a single study is fitted (e.g., ctmaOptimizeInit) # RECENT CHANGE
+      tmp1 <- which(names(primaryStudies) == "n.studies"); tmp1
+      for (i in 1:(tmp1-1)) primaryStudies[[i]][[n.studies+1]] <- NULL
+    }
 
     for (i in 1:n.studies) {
       studyList[[i]] <- list(studyNumber=i, empcov=primaryStudies$empcovs[[i]], delta_t=primaryStudies$deltas[[i]],
                              sampleSize=primaryStudies$sampleSizes[[i]], originalStudyNo=primaryStudies$studyNumber[[i]],
                              timePoints=sum(length(primaryStudies$deltas[[i]]), 1), moderators=primaryStudies$moderators[[i]],
-                             maxModerators=length(primaryStudies$moderators[[i]]), startValues=primaryStudies$startValues[[i]],
+                             maxModerators=length(primaryStudies$moderators[[i]]), startValues=primaryStudies$inits[[i]],
                              rawData=primaryStudies$rawData[[i]], pairwiseN=primaryStudies$pairwiseNs[[i]],
                              source=paste(primaryStudies$source[[i]], collapse=", "))
+      if (useSV == FALSE) studyList[[i]]$startValues <- NULL
       if (length(primaryStudies$moderators[[i]]) > maxLengthModeratorVector) maxLengthModeratorVector <- length(primaryStudies$moderators[[i]])
       # check matrix symmetry if matrix is provided
       if (!(primaryStudies$studyNumbers[i] %in% loadRawDataStudyNumbers)) {
@@ -264,7 +269,6 @@ ctmaInit <- function(
         }
       }
     }
-
 
     ### create pseudo raw data for all studies or load raw data if available & specified
     empraw <- lags <- moderators <- emprawMod <- allSampleSizes <- lostN <- overallNDiff <- relativeNDiff <- list()
@@ -698,6 +702,7 @@ ctmaInit <- function(
           results <- suppressMessages(ctsem::ctStanFit(
             datalong = emprawLong[[i]],
             ctstanmodel = currentModel,
+            inits=studyList[[i]]$startValues,
             savesubjectmatrices=CoTiMAStanctArgs$savesubjectmatrices,
             stanmodeltext=CoTiMAStanctArgs$stanmodeltext,
             iter=CoTiMAStanctArgs$iter,
@@ -729,6 +734,7 @@ ctmaInit <- function(
             fits <- suppressMessages(ctsem::ctStanFit(
               datalong = emprawLong[[i]],
               ctstanmodel = currentModel,
+              inits=studyList[[i]]$startValues,
               savesubjectmatrices=CoTiMAStanctArgs$savesubjectmatrices,
               stanmodeltext=CoTiMAStanctArgs$stanmodeltext,
               iter=CoTiMAStanctArgs$iter,
@@ -988,7 +994,7 @@ ctmaInit <- function(
     # DRIFT
     startCol <- 2; startCol
     startRow <- 1; startRow
-    openxlsx::writeData(wb, sheet2, startCol=startCol, startRow = startRow, matrix(driftNames, nrow=1), colNames = FALSE)
+    openxlsx::writeData(wb, sheet2, startCol=startCol, startRow = startRow, matrix(c(t(matrix(driftNames, nrow=n.latent))), nrow=1), colNames = FALSE)
     startCol <- 2; startCol
     startRow <- 2; startRow
     openxlsx::writeData(wb, sheet2, startCol=startCol, startRow = startRow, colNames = FALSE,

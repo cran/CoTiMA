@@ -30,7 +30,8 @@ ctmaInit(
   iter = NULL,
   verbose = NULL,
   customPar = TRUE,
-  doPar = 1
+  doPar = 1,
+  useSV = TRUE
 )
 }
 \arguments{
@@ -42,25 +43,25 @@ ctmaInit(
 
 \item{checkSingleStudyResults}{Displays estimates from single study ctsem models and waits for user input to continue. Useful to check estimates before they are saved.}
 
-\item{digits}{Number of digits used for rounding (in outputs)}
+\item{digits}{number of digits used for rounding (in outputs)}
 
-\item{n.latent}{Number of latent variables of the model (hast to be specified)!}
+\item{n.latent}{number of latent variables of the model (hast to be specified)!}
 
-\item{n.manifest}{Number of manifest variables of the model (if left empty it will assumed to be identical with n.latent).}
+\item{n.manifest}{number of manifest variables of the model (if left empty it will assumed to be identical with n.latent).}
 
 \item{lambda}{R-type matrix with pattern of fixed (=1) or free (any string) loadings.}
 
-\item{manifestVars}{Define the error variances of the manifests with a single time point using R-type matrix with nrow=n.manifest & ncol=n.manifest.}
+\item{manifestVars}{define the error variances of the manifests with a single time point using R-type matrix with nrow=n.manifest & ncol=n.manifest.}
 
-\item{drift}{Labels for drift effects. Have to be either of the type V1toV2 or 0 for effects to be excluded, which is usually not recommended)}
+\item{drift}{labels for drift effects. Have to be either of the type V1toV2 or 0 for effects to be excluded, which is usually not recommended)}
 
-\item{indVarying}{Control for unobserved heterogeneity by having randomly (inter-individually) varying manifest means}
+\item{indVarying}{control for unobserved heterogeneity by having randomly (inter-individually) varying manifest means}
 
-\item{saveRawData}{Save (created pseudo) raw date. List: saveRawData$studyNumbers, $fileName, $row.names, col.names, $sep, $dec}
+\item{saveRawData}{save (created pseudo) raw date. List: saveRawData$studyNumbers, $fileName, $row.names, col.names, $sep, $dec}
 
-\item{coresToUse}{If neg., the value is subtracted from available cores, else value = cores to use}
+\item{coresToUse}{if neg., the value is subtracted from available cores, else value = cores to use}
 
-\item{silentOverwrite}{Overwrite old files without asking}
+\item{silentOverwrite}{overwrite old files without asking}
 
 \item{saveSingleStudyModelFit}{save the fit of single study ctsem models (could save a lot of time afterwards if the fit is loaded)}
 
@@ -85,6 +86,8 @@ ctmaInit(
 \item{customPar}{logical. Leverages the first pass using priors and ensure that the drift diagonal cannot easily go too negative (could help with ctsem > 3.4)}
 
 \item{doPar}{parallel and multiple fitting if single studies}
+
+\item{useSV}{if TRUE (default) start values will be used if provided in the list of primary studies}
 }
 \value{
 ctmaFit returns a list containing some arguments supplied, the fitted models, different elements summarizing the main results,
