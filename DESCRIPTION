@@ -1,10 +1,10 @@
 Package: CoTiMA
 Type: Package
 Title: Continuous Time Meta-Analysis ('CoTiMA')
-Version: 0.3.9
-Date: 2021-04-13
+Version: 0.4.0
+Date: 2021-05-20
 Authors@R: c(person("Christian", "Dormann", role = c("aut","cph")),
-            person("Markus", "Homberg", email = "cotima@uni-mainz.de", role = c("ctb", "com", "cre")),
+            person("Markus", "Homberg", email = "cotima@uni-mainz.de", role = c("aut", "com", "cre")),
             person("Christina", "Guthier", role = c("ctb")),
             person("Manuel", "Voelkle", role = c("ctb")))    
 Description: The 'CoTiMA' package performs meta-analyses of correlation matrices of repeatedly measured variables taken from 
@@ -33,11 +33,11 @@ Suggests: R.rsp
 VignetteBuilder: R.rsp
 RoxygenNote: 7.1.1
 NeedsCompilation: no
-Packaged: 2021-04-13 15:39:43 UTC; comst
+Packaged: 2021-05-20 07:31:48 UTC; comst
 Author: Christian Dormann [aut, cph],
-  Markus Homberg [ctb, com, cre],
+  Markus Homberg [aut, com, cre],
   Christina Guthier [ctb],
   Manuel Voelkle [ctb]
 Maintainer: Markus Homberg <cotima@uni-mainz.de>
 Repository: CRAN
-Date/Publication: 2021-04-18 22:20:03 UTC
+Date/Publication: 2021-05-20 08:00:02 UTC
