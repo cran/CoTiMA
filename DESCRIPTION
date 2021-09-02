@@ -1,8 +1,8 @@
 Package: CoTiMA
 Type: Package
 Title: Continuous Time Meta-Analysis ('CoTiMA')
-Version: 0.4.0
-Date: 2021-05-20
+Version: 0.4.3
+Date: 2021-08-24
 Authors@R: c(person("Christian", "Dormann", role = c("aut","cph")),
             person("Markus", "Homberg", email = "cotima@uni-mainz.de", role = c("aut", "com", "cre")),
             person("Christina", "Guthier", role = c("ctb")),
@@ -33,11 +33,11 @@ Suggests: R.rsp
 VignetteBuilder: R.rsp
 RoxygenNote: 7.1.1
 NeedsCompilation: no
-Packaged: 2021-05-20 07:31:48 UTC; comst
+Packaged: 2021-08-24 06:53:49 UTC; comst
 Author: Christian Dormann [aut, cph],
   Markus Homberg [aut, com, cre],
   Christina Guthier [ctb],
   Manuel Voelkle [ctb]
 Maintainer: Markus Homberg <cotima@uni-mainz.de>
 Repository: CRAN
-Date/Publication: 2021-05-20 08:00:02 UTC
+Date/Publication: 2021-09-02 22:30:12 UTC
