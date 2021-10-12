@@ -1,5 +1,5 @@
-c6c5fd62278ab8e38beb1efdf22a3bc1 *DESCRIPTION
-820f068d8a9c2291ff948d903152a48b *NAMESPACE
+f2a1700b9bfdeb2717a38b0abb03d9e7 *DESCRIPTION
+70024c23cd14e0c1d09c53e1a32fe029 *NAMESPACE
 8a681462471b608df8446d764c0e86ac *R/ctmaAllInvFit.R
 4b960c39da71171498b77ed259a949e8 *R/ctmaBiG.R
 dd1068a4812cc472605ecc3d134b3f02 *R/ctmaBiGOMX.R
@@ -12,14 +12,13 @@ c8c90e2a52e07d8b53b9b43348735ec0 *R/ctmaFit.R
 f052499cdac481712d1fc2db52fa7f7f *R/ctmaFitList.R
 12e3ed7e0c4111fdc006c7af32c8f929 *R/ctmaFitToPrep.R
 efe9bee8980b4fe926c818eaf5b1aa97 *R/ctmaGetPub.R
-68723e4cb8f8bbdb4fc1ffdec528defa *R/ctmaInit.R
+8defedfc316422e50c6f1fce6d96c831 *R/ctmaInit.R
 8e31bd47084b97cacce6b4820cac176f *R/ctmaLabels.R
-10ba02a726a6507efa4dd379a420528d *R/ctmaModDrift.R
 8ec954784d8d1fb4df0d84f17ccf5398 *R/ctmaOptimizeInit.R
 f513abc4f046737c291b7250473828bb *R/ctmaPRaw.R
-77e7e642b4a5586dd1c2e1bc6713d511 *R/ctmaPlot.R
+fa89e4806bb69749d8975f669976efe6 *R/ctmaPlot.R
 1a921a678410343cae4d625402cb3c7f *R/ctmaPlotContainer.R
-7a2fcb304192e9b7e4e25f4d3ed01f87 *R/ctmaPower.R
+a4401da96aa9c302977fa7eb8e629506 *R/ctmaPower.R
 49f1ec7c6437b786883e38243c4bc297 *R/ctmaPrep.R
 a7f9ad94b9f8f6c6f5cf99855f9eca8d *R/ctmaPub.R
 bf01992ba314ebaa2bdc8e9bfe0cb77e *R/ctmaSV.R
@@ -139,7 +138,7 @@ b129cc2f40652f80a19b2e9445c87275 *data/source3.rda
 35a8f6cdaea9dd070b48a94fe95e37d5 *data/targetVariables3.rda
 dd784329847d1e24eaf873c5e43418a5 *data/targetVariables313.rda
 7e42ffe92ec1bf1eacdfc7504f5d1486 *data/variableNames128.rda
-b6175d46bbbd763cb08149ac71a6ef25 *inst/doc/CoTiMA_User_Guide.pdf
+aaeb907edde013abe49e0299f8e61661 *inst/doc/CoTiMA_User_Guide.pdf
 044851f3e5d3c72fd0a62d9f8f9f5c9f *inst/doc/CoTiMA_User_Guide.pdf.asis
 79207bf9cdaf4e39217838760f4639de *man/A128.Rd
 fa4015098bfc5a56b91550a8a3ae85a4 *man/A313.Rd
@@ -204,7 +203,6 @@ afda4a4aa921a31f6a009553df44a2d7 *man/ctmaFitToPrep.Rd
 92fa93ca54da95140cd79705122d2c2f *man/ctmaGetPub.Rd
 3b39ed05671fbdd24fe38635b1a344dd *man/ctmaInit.Rd
 f2186637377091d2c388d3c6e5c55204 *man/ctmaLabels.Rd
-2d7b97c4aed0eeec0036d9d974e4e53c *man/ctmaModDrift.Rd
 849ce070379a0ba42c26c2030009d207 *man/ctmaOptimizeInit.Rd
 3fd3eb32bcbf50353fdadc5f60f9b9f8 *man/ctmaPRaw.Rd
 81c9a6e66a8f5f3698aa2918c38831ac *man/ctmaPlot.Rd
