@@ -18,18 +18,18 @@
 #' parameters when fitting a 'CoTiMA' model
 #'
 ctmaLabels <- function(
-  n.latent=NULL,
-  n.manifest=0,
-  lambda=NULL,
-  manifestVars=NULL,
-  drift=NULL,
-  diff=NULL,
-  invariantDrift=NULL,
-  moderatedDrift=NULL,
-  equalDrift=NULL,
-  T0means=0,
-  manifestMeans=0)
-  {
+    n.latent=NULL,
+    n.manifest=0,
+    lambda=NULL,
+    manifestVars=NULL,
+    drift=NULL,
+    diff=NULL,
+    invariantDrift=NULL,
+    moderatedDrift=NULL,
+    equalDrift=NULL,
+    T0means=0,
+    manifestMeans=0)
+{
 
   n.var <- max(c(n.manifest, n.latent)); n.var
 
@@ -38,7 +38,8 @@ ctmaLabels <- function(
   for (i in 1:(n.latent)) {
     for (j in 1:(n.latent)) {
       driftNames <- c(driftNames, paste0("V",i,"toV", j))
-      if (i != j) diffNames <- c(diffNames, paste0("diff_eta", j, "_eta", i)) else diffNames <- c(diffNames, paste0("diff_eta", j))
+      if (i != j) diffNames <- c(diffNames, paste0("diff_eta", j, "_eta", i))
+      if (i == j) diffNames <- c(diffNames, paste0("diff_eta", j))
     }
   }
 
@@ -54,8 +55,12 @@ ctmaLabels <- function(
     tmp1 <- which(!(driftParams %in% drift)); tmp1
     # changed 11. Aug. 2022
     #driftParams[tmp1] <- "0"
-    driftParams[tmp1] <- drift; driftParams
-    tmp1 <- which(drift == 0); tmp1
+    # undo change on 12.7.23
+    #driftParams[tmp1] <- drift; driftParams
+    tmp2 <- which(driftParams %in% drift); tmp2
+    driftParams[tmp1] <- drift[tmp1]; driftParams
+    #tmp1 <- which(drift == 0); tmp1
+    tmp1 <- suppressWarnings(which(!(is.na(as.numeric(drift))))); tmp1
     if (length(tmp1) > 0) driftNames <- driftNames[-tmp1]
   }
 
@@ -96,8 +101,26 @@ ctmaLabels <- function(
   }
 
   equalDriftParams <- equalDriftNames <- equalDrift; equalDriftParams
-  tmp1 <- which(driftNames %in% equalDriftNames); tmp1
-  driftNames[tmp1] <- paste0(driftNames[tmp1], " (equal)"); driftNames
+  if (!(is.null(equalDrift))) {
+    #tmp1 <- which(driftNames %in% equalDriftNames); tmp1
+    #driftNames[tmp1] <- paste0(driftNames[tmp1], " (equal)"); driftNames
+    tmp1 <- which(driftParams %in% equalDriftNames); tmp1
+    tmpNames <- driftParams[tmp1[1]]; tmpNames
+    for (t in 2:length(tmp1)) tmpNames <- c(tmpNames, "_eq_", driftParams[tmp1[t]])
+    tmpNames <- paste(tmpNames,collapse=""); tmpNames
+    driftParams[tmp1] <- tmpNames; driftParams
+    tmpNames <- paste(tmpNames, "(invariant)", collapse=""); tmpNames
+    driftNames[tmp1] <- tmpNames; driftNames
+    # ensure that equal params are invarant params, too.
+    invariantDriftNames <- unique(c(invariantDrift, equalDriftNames))
+    tmp1 <- c()
+    for (t in 1:length(equalDrift)) tmp1 <- c(tmp1,  grep(equalDrift[t], invariantDriftNames))
+    invariantDriftParams[tmp1] <- invariantDriftNames[tmp1] <- driftParams[tmp1]
+    invariantDriftNames <- paste0(invariantDriftNames, " (invariant)"); invariantDriftNames
+  }
+  driftNames; driftParams; invariantDriftNames
+  invariantDriftParams
+
 
   tmp0 <- matrix(diffParams, n.latent); tmp0
   tmp0[upper.tri(tmp0, diag=FALSE)] <- 0; tmp0
@@ -138,25 +161,31 @@ ctmaLabels <- function(
   }
 
   # manifest means
-  MANIFESTMEANS <- 0
-  if (!(is.null(invariantDrift))) {
-    if ( (length(tmp1) + length(tmp2)) < n.var * n.latent ) {
-      # added 16. Aug 2022 (if else)
-      if (manifestMeans == 0) {
-        MANIFESTMEANS <- rep("0", n.manifest); MANIFESTMEANS
-        targetVar <- which(is.na(rowSums(tmp3))); targetVar
-        MANIFESTMEANS[targetVar] <- paste0("mean_", targetVar); MANIFESTMEANS
-      } #else {
-      #  MANIFESTMEANS <- manifestMeans
-      #}
-    } else {
-      # changed 16. Aug 2022
-      #MANIFESTMEANS <- 0
-      MANIFESTMEANS <- manifestMeans
-    #}
+  # CHD 9.6.2023
+  if (manifestMeans == 'auto') {
+    MANIFESTMEANS <- 'auto'
+    print(MANIFESTMEANS)
+  } else {
+    MANIFESTMEANS <- 0
+    if (!(is.null(invariantDrift))) {
+      if ( (length(tmp1) + length(tmp2)) < n.var * n.latent ) {
+        # added 16. Aug 2022 (if else)
+        if (manifestMeans == 0) {
+          MANIFESTMEANS <- rep("0", n.manifest); MANIFESTMEANS
+          targetVar <- which(is.na(rowSums(tmp3))); targetVar
+          MANIFESTMEANS[targetVar] <- paste0("mean_", targetVar); MANIFESTMEANS
+        } #else {
+        #  MANIFESTMEANS <- manifestMeans
+        #}
+      } else {
+        # changed 16. Aug 2022
+        #MANIFESTMEANS <- 0
+        MANIFESTMEANS <- manifestMeans
+        #}
+      }
     }
+    print(MANIFESTMEANS)
   }
-  #MANIFESTMEANS
 
   #T0Means
   if (!(is.null(invariantDrift))) {
@@ -182,4 +211,3 @@ ctmaLabels <- function(
 
   invisible(results)
 }
-

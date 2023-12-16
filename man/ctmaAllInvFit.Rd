@@ -16,6 +16,7 @@ ctmaAllInvFit(
   scaleTime = NULL,
   optimize = TRUE,
   nopriors = TRUE,
+  priors = FALSE,
   finishsamples = NULL,
   iter = NULL,
   chains = NULL,
@@ -28,7 +29,8 @@ ctmaAllInvFit(
   manifestMeans = 0,
   CoTiMAStanctArgs = NULL,
   lambda = NULL,
-  manifestVars = NULL
+  manifestVars = NULL,
+  indVaryingT0 = TRUE
 )
 }
 \arguments{
@@ -52,7 +54,9 @@ ctmaAllInvFit(
 
 \item{optimize}{optimize}
 
-\item{nopriors}{nopriors}
+\item{nopriors}{nopriors (TRUE, but deprecated)}
+
+\item{priors}{priors (FALSE)}
 
 \item{finishsamples}{finishsamples}
 
@@ -79,6 +83,8 @@ ctmaAllInvFit(
 \item{lambda}{R-type matrix with pattern of fixed (=1) or free (any string) loadings.}
 
 \item{manifestVars}{define the error variances of the manifests with a single time point using R-type lower triangular matrix with nrow=n.manifest & ncol=n.manifest.}
+
+\item{indVaryingT0}{Allows ct intercepts to vary at the individual level (random effects model, accounts for unobserved heterogeneity)}
 }
 \value{
 returns a fitted CoTiMA object, in which all drift parameters, Time 0 variances and covariances, and diffusion parameters were set invariant across primary studies

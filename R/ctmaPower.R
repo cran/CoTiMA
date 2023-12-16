@@ -234,6 +234,7 @@ ctmaPower <- function(
 
     allSampleSizes <- ctmaInitFit$statisticsList$allSampleSizes; allSampleSizes
     #failSafeN
+    failSafeNhelper <- ""
     if ( (!(is.null(failSafeN)) & ((is.null(failSafeP))))
          | ((is.null(failSafeN)) & (!(is.null(failSafeP)))) )  {
       if (activateRPB == TRUE) {
@@ -241,8 +242,10 @@ ctmaPower <- function(
       }
       cat(crayon::red$bold("Only one argument (failSafeN OR failSafeP) has been provided, but both are required!", sep="\n"))
       cat(crayon::red$bold(" ", " ", sep="\n"))
-      round(mean(allSampleSizes+.5),0)
-      failSafeNhelper <- ""
+      #round(mean(allSampleSizes+.5),0)
+      # Changed 26 Nov 2022
+      #failSafeNhelper <- ""
+      failSafeNhelper <-  round(mean(allSampleSizes+.5),0)
       if (is.null(failSafeN)) {
         failSafeN <- round(mean(allSampleSizes+.5),0)
         failSafeNhelper <- "( = avg. N)"
@@ -284,51 +287,55 @@ ctmaPower <- function(
   ################################################# data preparation ####################################################
   #######################################################################################################################
   {
-    # combine pseudo raw data for model
-    tmp <- ctmaCombPRaw(listOfStudyFits=ctmaInitFit)
-    #var(tmp$alldata[,1:8], na.rm=TRUE)
+    # CHD adeed 26 Nov 2022
+    if (length(loadAllInvFit) < 1) {
+      # combine pseudo raw data for model
+      tmp <- ctmaCombPRaw(listOfStudyFits=ctmaInitFit)
+      #var(tmp$alldata[,1:8], na.rm=TRUE)
 
-    if (skipScaling == FALSE) {
-      tmp1 <- grep("_T", colnames(tmp$alldata)); tmp1
-      tmp$alldata[, tmp1] <- scale(tmp$alldata[, tmp1])
+      if (skipScaling == FALSE) {
+        tmp1 <- grep("_T", colnames(tmp$alldata)); tmp1
+        tmp$alldata[, tmp1] <- scale(tmp$alldata[, tmp1])
+      }
+
+      datawide_all <- tmp$alldata
+      groups <- tmp$groups
+
+      # possible subsample selection
+      if (!(is.null(useSampleFraction))) {
+        N <- dim(datawide_all)[1]; N
+        stepwidth <- 100/useSampleFraction
+        targetCases <- round(seq(1, N, stepwidth), 0); targetCases
+        datawide_all <- datawide_all[targetCases, ]
+        groups <- groups[targetCases]
+      }
+      #var(datawide_all[,1:8], na.rm=TRUE)
+
+
+      names(groups) <- c("Study_No_"); groups
+      groupsNamed <- (paste0("Study_No_", groups)); groupsNamed
+
+      # augment pseudo raw data for stanct model
+      dataTmp <- cbind(datawide_all, groups)
+      for (i in 1:(n.studies-1)) {
+        tmp <- matrix(0, nrow=nrow(dataTmp)); tmp
+        colnames(tmp) <- paste0("TI", i); tmp
+        dataTmp <- cbind(dataTmp, tmp); dim(dataTmp)
+        tmp <- which(dataTmp[,"groups"] == i); tmp
+        dataTmp[tmp, ncol(dataTmp)] <- 1
+        if (CoTiMAStanctArgs$scaleTI == TRUE) dataTmp[ , ncol(dataTmp)] <- scale(dataTmp[ , ncol(dataTmp)])
+      }
+      targetCols <- which(colnames(dataTmp) == "groups"); targetCols
+      dataTmp <- dataTmp[ ,-targetCols]
+      dataTmp2 <- suppressMessages(ctWideToLong(dataTmp, Tpoints=maxTpoints, n.manifest=n.latent, n.TIpred = (n.studies-1),
+                                                manifestNames=manifestNames))
+      dataTmp3 <- suppressMessages(ctDeintervalise(dataTmp2))
+      dataTmp3[, "time"] <- dataTmp3[, "time"] * CoTiMAStanctArgs$scaleTime
+      # eliminate rows where ALL latents are NA
+      dataTmp3 <- dataTmp3[, ][ apply(dataTmp3[, paste0("V", 1:n.latent)], 1, function(x) sum(is.na(x)) != n.latent ), ]
+      datalong_all <- dataTmp3
+      datalong_all <- datalong_all[, -grep("TI", colnames(datalong_all))]
     }
-
-    datawide_all <- tmp$alldata
-    groups <- tmp$groups
-
-    # possible subsample selection
-    if (!(is.null(useSampleFraction))) {
-      N <- dim(datawide_all)[1]; N
-      stepwidth <- 100/useSampleFraction
-      targetCases <- round(seq(1, N, stepwidth), 0); targetCases
-      datawide_all <- datawide_all[targetCases, ]
-      groups <- groups[targetCases]
-    }
-    #var(datawide_all[,1:8], na.rm=TRUE)
-
-
-    names(groups) <- c("Study_No_"); groups
-    groupsNamed <- (paste0("Study_No_", groups)); groupsNamed
-
-    # augment pseudo raw data for stanct model
-    dataTmp <- cbind(datawide_all, groups)
-    for (i in 1:(n.studies-1)) {
-      tmp <- matrix(0, nrow=nrow(dataTmp)); tmp
-      colnames(tmp) <- paste0("TI", i); tmp
-      dataTmp <- cbind(dataTmp, tmp); dim(dataTmp)
-      tmp <- which(dataTmp[,"groups"] == i); tmp
-      dataTmp[tmp, ncol(dataTmp)] <- 1
-      if (CoTiMAStanctArgs$scaleTI == TRUE) dataTmp[ , ncol(dataTmp)] <- scale(dataTmp[ , ncol(dataTmp)])
-    }
-    targetCols <- which(colnames(dataTmp) == "groups"); targetCols
-    dataTmp <- dataTmp[ ,-targetCols]
-    dataTmp2 <- suppressMessages(ctWideToLong(dataTmp, Tpoints=maxTpoints, n.manifest=n.latent, n.TIpred = (n.studies-1),
-                                              manifestNames=manifestNames))
-    dataTmp3 <- suppressMessages(ctDeintervalise(dataTmp2))
-    dataTmp3[, "time"] <- dataTmp3[, "time"] * CoTiMAStanctArgs$scaleTime
-    # eliminate rows where ALL latents are NA
-    dataTmp3 <- dataTmp3[, ][ apply(dataTmp3[, paste0("V", 1:n.latent)], 1, function(x) sum(is.na(x)) != n.latent ), ]
-    datalong_all <- dataTmp3
   }
 
 
@@ -342,13 +349,17 @@ ctmaPower <- function(
   Msg <- "################################################################################# \n######## Fitting all fixed CoTiMA - ALL parameters equal across groups ########## \n#################################################################################"
   message(Msg)
 
-  datalong_all <- datalong_all[, -grep("TI", colnames(datalong_all))]
+  # CHD moved up 26 Nov 2022
+  #datalong_all <- datalong_all[, -grep("TI", colnames(datalong_all))]
 
 
   # LOAD or Fit
   if (length(loadAllInvFit) > 0) {
     x1 <- paste0(activeDirectory, loadAllInvFit[1], ".rds"); x1
-    results <- readRDS(file=x1)
+    # CHD changed Nov 2022
+    #results <- readRDS(file=x1)
+    allInvModelFit <- readRDS(file=x1)
+    allInvModelFitSummary <- summary(allInvModelFit, digits=digits)
   } else {
     allInvModelFit <- ctmaAllInvFit(ctmaInitFit=ctmaInitFit,
                                     activeDirectory=activeDirectory,
@@ -639,7 +650,7 @@ ctmaPower <- function(
       #
     }
   }
-  #pValues
+
 
   Msg <- "################################################################################# \n# Compute min and max discrete time intervals for which effects are significant # \n#################################################################################"
   message(Msg)
@@ -721,14 +732,18 @@ ctmaPower <- function(
   # Plot required sample size for cross effects.
   for (h in 1:length(statisticalPower)) {
     counter <- 0
+    #h <- 1
     for (j1 in 1:(n.latent)) {
+      #j1 <- 1
       for (j2 in 1:(n.latent)) {
+        #j2 <- 2
         if (j1 != j2) {
           counter <- counter + 1; counter
           for (k in 1:(length(usedTimeRange)-1)) {
+            #k <- 1
             delta_t <- usedTimeRange[k+1]; delta_t
             plotPairs[counter, h, k, 1] <- usedTimeRange[k+1]; plotPairs[counter, h, k, 1] # time point
-
+            #plotPairs[1, , ,]
             # R2 in terms of Kelley & Maxwell 2008
             # betas & psis for model with all effects included
             sample.nobs <- 1000 # large enough to prevent shrinkage
@@ -803,12 +818,17 @@ ctmaPower <- function(
     message(Msg)
   } # end h loop (length(statisticalPower))
 
-  # shortcut: eliminate effects that were fixed to zero
+  # shortcut: eliminate effects that were fixed to zero (if props = .25 or .005 = by chance)
+  # deactivated on 2.6.2023
+  skip <- 1
+  if (skip != 1) {
   for (l in length(listPowerAlpha05):1) {
     tmp1 <- apply(listPowerAlpha05[[l]], 2, mean, na.rm=TRUE); tmp1
+    (round(tmp1[2], 4) == .0250)
     if (round(tmp1[2], 4) == .0250) listPowerAlpha05[[l]] <- NULL
     tmp1 <- apply(listPowerAlpha01[[l]], 2, mean, na.rm=TRUE); tmp1
     if (round(tmp1[2], 4) == .0050) listPowerAlpha01[[l]] <- NULL
+  }
   }
 
   # Table of required sample sizes for range of different time lags (a priori power)

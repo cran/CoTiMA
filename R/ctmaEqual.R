@@ -28,15 +28,15 @@
 #' CoTiMAFullInvEq23Fit_6 <- ctmaEqual(ctmaInvariantFit=CoTiMAFullInv23Fit_6)
 #' }
 #'
-#' @return returns a model where two or more parameteres were set equal across primary studies and a log-liklihood difference test
-#' informing about the probablity that the equality assumption is correct.
+#' @return returns a model where two or more parameters were set equal across primary studies and a log-likelihood difference test
+#' informing about the probability that the equality assumption is correct.
 #'
 ctmaEqual <- function(
   ctmaInvariantFit=NULL,
   activeDirectory=NULL,
   activateRPB=FALSE,
   digits=4,
-  coresToUse=1
+  coresToUse=2
   )
 
 {  # begin function definition (until end of file)
@@ -145,11 +145,12 @@ ctmaEqual <- function(
     intoverpop=CoTiMAStanctArgs$intoverpop,
     stationary=CoTiMAStanctArgs$stationary,
     plot=CoTiMAStanctArgs$plot,
-    derrind=CoTiMAStanctArgs$derrind,
+    #derrind=CoTiMAStanctArgs$derrind, # CHD deprecated, deleted Aug 2023
     optimize=CoTiMAStanctArgs$optimize,
     optimcontrol=CoTiMAStanctArgs$optimcontrol,
     nlcontrol=CoTiMAStanctArgs$nlcontrol,
     nopriors=CoTiMAStanctArgs$nopriors,
+    priors=CoTiMAStanctArgs$priors, # added Aug 2023
     chains=CoTiMAStanctArgs$chains,
     forcerecompile=CoTiMAStanctArgs$forcerecompile,
     savescores=CoTiMAStanctArgs$savescores,

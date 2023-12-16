@@ -10,9 +10,11 @@
 #' @param drift Labels for drift effects. Have to be either of the type V1toV2 or 0 for effects to be excluded, which is usually not recommended)
 #' @param n.manifest Number of manifest variables of the model (if left empty it will assumed to be identical with n.latent).
 #' @param indVarying Allows ct intercepts to vary at the individual level (random effects model, accounts for unobserved heterogeneity)
+#' @param indVaryingT0 Forces T0MEANS (T0 scores) to vary interindividually, which undos the nesting of T0(co-)variances in primary studies (default = TRUE). Was standard until Aug. 2022. Could provide better/worse estimates if set to FALSE.
 #' @param scaleTime scaleTime
 #' @param optimize optimize
-#' @param nopriors nopriors
+#' @param nopriors nopriors (TRUE, but deprecated)
+#' @param priors priors (FALSE)
 #' @param finishsamples finishsamples
 #' @param iter iter
 #' @param chains chains
@@ -27,6 +29,7 @@
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
 #' @param manifestVars define the error variances of the manifests with a single time point using R-type lower triangular matrix with nrow=n.manifest & ncol=n.manifest.
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
+#' @param indVaryingT0 Allows ct intercepts to vary at the individual level (random effects model, accounts for unobserved heterogeneity)
 #'
 #' @return returns a fitted CoTiMA object, in which all drift parameters, Time 0 variances and covariances, and diffusion parameters were set invariant across primary studies
 #'
@@ -42,6 +45,7 @@ ctmaAllInvFit <- function(
   scaleTime=NULL,
   optimize=TRUE,
   nopriors=TRUE,
+  priors=FALSE,
   finishsamples=NULL,
   iter=NULL,
   chains=NULL,
@@ -54,7 +58,8 @@ ctmaAllInvFit <- function(
   manifestMeans=0,
   CoTiMAStanctArgs=NULL,
   lambda=NULL,
-  manifestVars=NULL
+  manifestVars=NULL,
+  indVaryingT0=TRUE
 )
 {
 
@@ -226,7 +231,94 @@ ctmaAllInvFit <- function(
   MANIFESTMEANS <- manifestMeansParams
   MANIFESTVAR <- manifestVarsParams
 
+  # CHD 13.6.2023
+  # CHD 9.6.2023
+  if ((indVarying == 'cint') | (indVarying == 'Cint')) indVarying <- 'CINT'
+
+    # CHD 9.6.2023
+    if ( (indVarying == 'CINT') & (indVaryingT0 == TRUE) ) {
+      print(paste0("#################################################################################"))
+      print(paste0("######## Just a note: Individually varying intercepts model requested.  #########"))
+      print(paste0("#################################################################################"))
+
+      print(paste0("#################################################################################"))
+      print(paste0("# T0means are set to \'auto\'. T0(co-)variances not modelled nested in primaries.#"))
+      print(paste0("#################################################################################"))
+      T0meansParams <- 'auto'
+
+      print(paste0("#################################################################################"))
+      print(paste0("####################### CT intercepts are set free.  ########################"))
+      print(paste0("#################################################################################"))
+
+      CINTParams <- c()
+      for (c in 1:n.latent) {
+        CINTParams <- c(CINTParams, paste0("cintV", c))
+      }
+    }
+    #CINTParams
+
+    if ( (indVarying == 'CINT') & (indVaryingT0 == FALSE) ) {
+      print(paste0("#################################################################################"))
+      print(paste0("######## Just a note: Individually varying intercepts model requested.  #########"))
+      print(paste0("#################################################################################"))
+
+      print(paste0("#################################################################################"))
+      print(paste0("### T0means are set to 0. T0(co-)variances are modelled nested in primaries. ####"))
+      print(paste0("#################################################################################"))
+      T0meansParams <- 0
+
+      print(paste0("#################################################################################"))
+      print(paste0("####################### CT intercepts are set free.  ########################"))
+      print(paste0("#################################################################################"))
+
+      CINTParams <- c()
+      for (c in 1:n.latent) {
+        CINTParams <- c(CINTParams, paste0("cintV", c))
+      }
+    }
+
+    if ( (indVarying == TRUE) & (indVaryingT0 == TRUE) ) {
+      print(paste0("#################################################################################"))
+      print(paste0("###### Just a note: Individually varying manifest means model requested.  #######"))
+      print(paste0("#################################################################################"))
+
+      print(paste0("#################################################################################"))
+      print(paste0("## T0means set to \'auto\'. T0(co-)variances not modelled nested in primaries. ##"))
+      print(paste0("#################### Consider setting \'indVaryingT0 = FALSE\' ####################"))
+      print(paste0("#################################################################################"))
+      T0meansParams <- 'auto'
+
+      print(paste0("#################################################################################"))
+      print(paste0("######### Manifest means (as replacement for intercepts) are set free.  #########"))
+      print(paste0("#################################################################################"))
+
+      manifestMeansParams <- 'auto'
+    }
+
+
+    if ( (indVarying == TRUE) & (indVaryingT0 == FALSE) ) {
+      print(paste0("#################################################################################"))
+      print(paste0("###### Just a note: Individually varying manifest means model requested.  #######"))
+      print(paste0("#################################################################################"))
+
+      print(paste0("#################################################################################"))
+      print(paste0("### T0means are set to 0. T0(co-)variances are modelled nested in primaries. ####"))
+      print(paste0("#################################################################################"))
+      T0meansParams <- 0
+
+      print(paste0("#################################################################################"))
+      print(paste0("######### Manifest means (as replacement for intercepts) are set free.  #########"))
+      print(paste0("#################################################################################"))
+
+      manifestMeansParams <- 'auto'
+    }
+
+
   # all fixed model is a model with no TI predictors (identical to ctsemModel)
+  # CHD added on 24.6.2023 to prevent warning messages
+  if (T0MEANS == 0) T0MEANS <- matrix(0, nrow=n.latent, ncol=1)
+  if (MANIFESTMEANS == 0) MANIFESTMEANS <- matrix(0, nrow=n.latent, ncol=1)
+  if (MANIFESTVAR == 0) MANIFESTVAR <- matrix(0, nrow=n.latent, ncol=n.latent)
   # CHD allFixedModel <- ctModel(n.latent=n.latent, n.manifest=n.latent, Tpoints=maxTpointsModel, manifestNames=manifestNames,    # 2 waves in the template only
   allFixedModel <- ctsem::ctModel(n.latent=n.latent, n.manifest=n.latent, Tpoints=maxTpoints, manifestNames=manifestNames,    # 2 waves in the template only
                            DIFFUSION=matrix(diffParamsTmp, nrow=n.latent, ncol=n.latent), #, byrow=TRUE),
@@ -239,6 +331,24 @@ ctmaAllInvFit <- function(
                            MANIFESTVAR=MANIFESTVAR)
 
   if (indVarying == FALSE) allFixedModel$pars[, "indvarying"] <- FALSE
+  #CHD 13.6.2023
+  if (indVaryingT0 == TRUE) {
+    allFixedModel$pars[allFixedModel$pars$matrix %in% 'T0MEANS','indvarying'] <- TRUE
+  } else {
+    allFixedModel$pars[allFixedModel$pars$matrix %in% 'T0MEANS','indvarying'] <- FALSE
+  }
+  # CHD 13.6.2023
+  if (indVarying == 'CINT') {
+    allFixedModel$pars[allFixedModel$pars$matrix %in% 'CINT','indvarying'] <- TRUE
+  } else {
+    allFixedModel$pars[allFixedModel$pars$matrix %in% 'CINT','indvarying'] <- FALSE
+  }
+  if (indVarying == TRUE) {
+    allFixedModel$pars[allFixedModel$pars$matrix %in% 'MANIFESTMEANS','indvarying'] <- TRUE
+  } else {
+    allFixedModel$pars[allFixedModel$pars$matrix %in% 'MANIFESTMEANS','indvarying'] <- FALSE
+  }
+
 
 
   # LOAD or Fit
