@@ -20,6 +20,7 @@ ctmaInit(
   drift = NULL,
   experimental = FALSE,
   finishsamples = NULL,
+  fit = TRUE,
   indVarying = FALSE,
   indVaryingT0 = NULL,
   iter = NULL,
@@ -29,11 +30,10 @@ ctmaInit(
   manifestVars = NULL,
   n.latent = NULL,
   n.manifest = 0,
-  nopriors = FALSE,
   optimize = TRUE,
-  posLL = TRUE,
   primaryStudies = NULL,
   priors = FALSE,
+  randomIntercepts = FALSE,
   sameInitialTimes = FALSE,
   saveRawData = list(),
   saveSingleStudyModelFit = c(),
@@ -43,7 +43,7 @@ ctmaInit(
   T0means = 0,
   T0var = "auto",
   useSV = FALSE,
-  verbose = NULL
+  verbose = 0
 )
 }
 \arguments{
@@ -57,7 +57,7 @@ ctmaInit(
 
 \item{checkSingleStudyResults}{Displays estimates from single study ctsem models and waits for user input to continue. Useful to check estimates before they are saved.}
 
-\item{cint}{default 'auto' (= 0). Are set free if random intercepts model with varying cints is requested (by indvarying='cint')}
+\item{cint}{default 'auto' (= 0). Are set free if random intercepts model with varying cints is requested (by indVarying='cint')}
 
 \item{coresToUse}{if neg., the value is subtracted from available cores, else value = cores to use}
 
@@ -73,13 +73,15 @@ ctmaInit(
 
 \item{drift}{labels for drift effects. Have to be either of the character strings of the type V1toV2 (= freely estimated) or values (e.g., 0 for effects to be excluded, which is usually not recommended)}
 
-\item{experimental}{set TRUE to try new pairwise N function}
+\item{experimental}{used for debugging puposes (default = FALSE)}
 
 \item{finishsamples}{number of samples to draw (either from hessian based covariance or posterior distribution) for final results computation (default = 1000).}
 
+\item{fit}{TRUE (default) fits the requested model. FALSE returns the \code{\link{ctsem}} code CoTiMA uses to set up the model, the ctsemmodelbase which can be modified to match users requirements, and the data set (in long format created). The model can then be fitted using \code{\link{ctStanFit}})}
+
 \item{indVarying}{control for unobserved heterogeneity by having randomly (inter-individually) varying manifest means}
 
-\item{indVaryingT0}{(default = NULL). Automatically set to TRUE if not set to FALSE if indVarying ist set TRUE. indVaryingT0=TRUE fits the regular random intercept models.}
+\item{indVaryingT0}{deprecated. Automatically set to NULL.}
 
 \item{iter}{number of interation (defaul = 1000). Sometimes larger values could be required fom Bayesian estimation}
 
@@ -95,15 +97,13 @@ ctmaInit(
 
 \item{n.manifest}{number of manifest variables of the model (if left empty it will assumed to be identical with n.latent).}
 
-\item{nopriors}{Deprecated, but still working. If TRUE, any priors are disabled – sometimes desirable for optimization}
-
 \item{optimize}{if set to FALSE, Stan's Hamiltonian Monte Carlo sampler is used (default = TRUE = maximum a posteriori / importance sampling) .}
-
-\item{posLL}{logical. Allows (default = TRUE) of positive loglik (neg -2ll) values}
 
 \item{primaryStudies}{list of primary study information created with \code{\link{ctmaPrep}}}
 
 \item{priors}{if FALSE, any priors are disabled – sometimes desirable for optimization}
+
+\item{randomIntercepts}{(default = FALSE) Experimental. Overrides ctsem's default mode for modelling indVarying cints.}
 
 \item{sameInitialTimes}{Only important for raw data. If TRUE (default=FALSE), T0MEANS occurs for every subject at the same time, rather than just at the earliest observation.}
 
@@ -135,7 +135,7 @@ model specified by CoTiMA, the rstan model created by ctsem, the fitted rstan mo
 (containing the pseudo raw data created), statisticsList (comprising baisc stats such as average sample size, no. of measurement points,
 etc.), a list with modelResults (i.e., DRIFT=model_Drift_Coef, DIFFUSION=model_Diffusion_Coef, T0VAR=model_T0var_Coef,
 CINT=model_Cint_Coef), and the paramter names internally used. The summary list,  which is printed if the summary function is applied to the
-returned object, comprises "estimates" (the aggregated effects), possible randomEffects (not yet fully working),  confidenceIntervals, the
+returned object, comprises "estimates" (the aggregated effects), possible randomIntercepts,confidenceIntervals, the
 minus2ll value and its n.parameters, and possible warning messages (message). Plot type is plot.type=c("drift") and model.type="stanct"
 ("omx" was deprecated).
 }

@@ -15,7 +15,6 @@ ctmaAllInvFit(
   indVarying = FALSE,
   scaleTime = NULL,
   optimize = TRUE,
-  nopriors = TRUE,
   priors = FALSE,
   finishsamples = NULL,
   iter = NULL,
@@ -30,7 +29,7 @@ ctmaAllInvFit(
   CoTiMAStanctArgs = NULL,
   lambda = NULL,
   manifestVars = NULL,
-  indVaryingT0 = TRUE
+  indVaryingT0 = NULL
 )
 }
 \arguments{
@@ -53,8 +52,6 @@ ctmaAllInvFit(
 \item{scaleTime}{scaleTime}
 
 \item{optimize}{optimize}
-
-\item{nopriors}{nopriors (TRUE, but deprecated)}
 
 \item{priors}{priors (FALSE)}
 
@@ -84,11 +81,11 @@ ctmaAllInvFit(
 
 \item{manifestVars}{define the error variances of the manifests with a single time point using R-type lower triangular matrix with nrow=n.manifest & ncol=n.manifest.}
 
-\item{indVaryingT0}{Allows ct intercepts to vary at the individual level (random effects model, accounts for unobserved heterogeneity)}
+\item{indVaryingT0}{Forces T0MEANS (T0 scores) to vary interindividually, which undos the nesting of T0(co-)variances in primary studies (default = TRUE). Was standard until Aug. 2022. Could provide better/worse estimates if set to FALSE.}
 }
 \value{
 returns a fitted CoTiMA object, in which all drift parameters, Time 0 variances and covariances, and diffusion parameters were set invariant across primary studies
 }
 \description{
-#' @description Fit a CoTiMA model with all params (drift, T0var, diffusion) invariant across primary studies
+Fit a CoTiMA model with all params (drift, T0var, diffusion) invariant across primary studies
 }

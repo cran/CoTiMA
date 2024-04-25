@@ -52,14 +52,12 @@ ctmaLabels <- function(
   diffFullNames <- c(t(matrix(diffFullNames, n.latent))); diffFullNames
 
   if (!(is.null(drift))) {
-    tmp1 <- which(!(driftParams %in% drift)); tmp1
-    # changed 11. Aug. 2022
-    #driftParams[tmp1] <- "0"
-    # undo change on 12.7.23
-    #driftParams[tmp1] <- drift; driftParams
-    tmp2 <- which(driftParams %in% drift); tmp2
-    driftParams[tmp1] <- drift[tmp1]; driftParams
-    #tmp1 <- which(drift == 0); tmp1
+    #tmp1 <- which(!(driftParams %in% drift)); tmp1
+    #tmp2 <- which(driftParams %in% drift); tmp2
+    #driftParams[tmp1] <- drift[tmp1]; driftParams
+    drift <- c(drift); drift
+    tmp1 <- which(drift == 0); tmp1
+    if (length(tmp1) > 0) driftParams[tmp1] <- 0
     tmp1 <- suppressWarnings(which(!(is.na(as.numeric(drift))))); tmp1
     if (length(tmp1) > 0) driftNames <- driftNames[-tmp1]
   }
@@ -67,7 +65,7 @@ ctmaLabels <- function(
   # added 11. Aug. 2022
   if (!(is.null(diff))) {
     tmp1 <- which(!(diffParams %in% drift)); tmp1
-    diffParamsParams[tmp1] <- diff; driftParams
+    diffParams[tmp1] <- diff; driftParams
     tmp1 <- which(diff == 0); tmp1
     if (length(tmp1) > 0) diffNames <- diffNames[-tmp1]
   }
@@ -164,7 +162,6 @@ ctmaLabels <- function(
   # CHD 9.6.2023
   if (manifestMeans == 'auto') {
     MANIFESTMEANS <- 'auto'
-    print(MANIFESTMEANS)
   } else {
     MANIFESTMEANS <- 0
     if (!(is.null(invariantDrift))) {
@@ -184,7 +181,6 @@ ctmaLabels <- function(
         #}
       }
     }
-    print(MANIFESTMEANS)
   }
 
   #T0Means

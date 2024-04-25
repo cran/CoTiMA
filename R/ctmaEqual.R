@@ -42,7 +42,7 @@ ctmaEqual <- function(
 {  # begin function definition (until end of file)
 
   # use same fitting params as used to fit ctmaInvariantFit
-  CoTiMAStanctArgs <- ctmaInvariantFit$CoTiMAStanctArgs
+  CoTiMAStanctArgs <- ctmaInvariantFit$argumentList$CoTiMAStanctArgs
 
   # check if mutipleDriftFit object is supplied
   if (! ((ctmaInvariantFit$model.type == "mx") || (ctmaInvariantFit$model.type == "stanct")) ) {
@@ -132,6 +132,9 @@ ctmaEqual <- function(
 
   prevData <- ctmaInvariantFit$data
 
+  priors <- FALSE
+  if (!(is.null(CoTiMAStanctArgs$priors))) priors <- CoTiMAStanctArgs$priors else priors <- FALSE
+
   fitStanctModel <- ctsem::ctStanFit(
     inits=prevEst,
     datalong = prevData,
@@ -149,8 +152,10 @@ ctmaEqual <- function(
     optimize=CoTiMAStanctArgs$optimize,
     optimcontrol=CoTiMAStanctArgs$optimcontrol,
     nlcontrol=CoTiMAStanctArgs$nlcontrol,
-    nopriors=CoTiMAStanctArgs$nopriors,
-    priors=CoTiMAStanctArgs$priors, # added Aug 2023
+    #nopriors=CoTiMAStanctArgs$nopriors,
+    #nopriors=TRUE,
+    #priors=CoTiMAStanctArgs$priors, # added Aug 2023
+    priors=priors,
     chains=CoTiMAStanctArgs$chains,
     forcerecompile=CoTiMAStanctArgs$forcerecompile,
     savescores=CoTiMAStanctArgs$savescores,
@@ -229,14 +234,14 @@ ctmaEqual <- function(
 
   end.time <- Sys.time()
   time.taken <- end.time - start.time
-  st <- paste0("Computation started at: ", start.time); st
-  et <- paste0("Computation ended at: ", end.time); et
-  tt <- paste0("Computation lasted: ", round(time.taken, digits)); tt
+  #st <- paste0("Computation started at: ", start.time); st
+  #et <- paste0("Computation ended at: ", end.time); et
+  #tt <- paste0("Computation lasted: ", round(time.taken, digits)); tt
 
   # results is built again after test for equality
   results <- list(activeDirectory=activeDirectory,
                   plot.type=NULL, model.type="stanct",
-                  time=list(start.time=start.time, end.time=end.time, time.taken=time.taken),
+                  #time=list(start.time=start.time, end.time=end.time, time.taken=time.taken),
                   coresToUse=coresToUse, n.studies=n.studies,
                   n.latent=n.latent,
                   studyList=ctmaInvariantFit$studyList, studyFitList=fitStanctModel,

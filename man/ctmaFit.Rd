@@ -39,20 +39,21 @@ ctmaFit(
   mod.type = "cont",
   moderatedDrift = NULL,
   modsToCompare = NULL,
-  nopriors = TRUE,
   optimize = TRUE,
   primaryStudyList = NULL,
   priors = FALSE,
+  randomIntercepts = FALSE,
   sameInitialTimes = FALSE,
   scaleClus = TRUE,
-  scaleMod = NULL,
+  scaleMod = TRUE,
   scaleTI = TRUE,
   scaleTime = NULL,
   T0means = 0,
   T0var = "auto",
   transfMod = NULL,
   useSampleFraction = NULL,
-  verbose = NULL
+  verbose = 0,
+  WEC = FALSE
 )
 }
 \arguments{
@@ -68,7 +69,7 @@ ctmaFit(
 
 \item{chains}{number of chains to sample, during HMC or post-optimization importance sampling.}
 
-\item{cint}{default 'auto' (= 0). Are set free if random intercepts model with varying cints is requested (by indvarying='cint')}
+\item{cint}{default 'auto' (= 0). Are set free if random intercepts model with varying cints is requested (by indVarying='cint')}
 
 \item{cluster}{vector with cluster variables (e.g., countries). Has to be set up carfully. Will be included in \code{\link{ctmaPrep}} in later 'CoTiMA' versions.}
 
@@ -100,7 +101,7 @@ ctmaFit(
 
 \item{indVarying}{allows continuous time intercepts to vary at the individual level (random intercepts model, accounts for unobserved heterogeneity)}
 
-\item{indVaryingT0}{(default = NULL). Automatically set to TRUE if not set to FALSE if indVarying ist set TRUE. indVaryingT0=TRUE forces T0MEANS (T0 scores) to vary interindividually, which undos the nesting of T0(co-)variances in primary studies. Was standard until Aug. 2022. Could provide better estimates if set to FALSE.}
+\item{indVaryingT0}{deprecated. Automatically set to NULL.}
 
 \item{inits}{vector of start values}
 
@@ -110,7 +111,7 @@ ctmaFit(
 
 \item{lambda}{R-type matrix with pattern of fixed (=1) or free (any string) loadings.}
 
-\item{manifestMeans}{default = 0. Are automatically set free is indvarying is set to TRUE. Can be assigned labels to estimate them freely.}
+\item{manifestMeans}{default = 0. Are automatically set free if indVarying is set to TRUE. Can be assigned labels to estimate them freely.}
 
 \item{manifestVars}{define the error variances (default = 0) of the manifests with a single time point using R-type lower triangular matrix with nrow=n.manifest & ncol=n.manifest.}
 
@@ -124,13 +125,13 @@ ctmaFit(
 
 \item{modsToCompare}{when performing contrasts for categorical moderators, the moderator numbers (position in mod.number) that is used}
 
-\item{nopriors}{Deprecated, but still working. If TRUE, any priors are disabled – sometimes desirable for optimization}
-
 \item{optimize}{if set to FALSE, Stan’s Hamiltonian Monte Carlo sampler is used (default = TRUE = maximum a posteriori / importance sampling) .}
 
 \item{primaryStudyList}{could be a list of primary studies compiled with \code{\link{ctmaPrep}} that defines the subset of studies in ctmaInitFit that should actually be used}
 
 \item{priors}{if FALSE, any priors are disabled – sometimes desirable for optimization}
+
+\item{randomIntercepts}{(default = FALSE) Experimental. Overrides ctsem's default mode for modelling indVarying cints.}
 
 \item{sameInitialTimes}{Only important for raw data. If TRUE (default=FALSE), T0MEANS occurs for every subject at the same time, rather than just at the earliest observation.}
 
@@ -151,6 +152,8 @@ ctmaFit(
 \item{useSampleFraction}{to speed up debugging. Provided as fraction (e.g., 1/10).}
 
 \item{verbose}{integer from 0 to 2. Higher values print more information during model fit – for debugging}
+
+\item{WEC}{(default = FALSE) Experimental. Uses weighted effect coding of TIpred representing the dummies of the primary studies. Returns drift matrices for all primary studies.}
 }
 \value{
 ctmaFit returns a list containing somearguments supplied, the fitted model, different elements summarizing the main results,

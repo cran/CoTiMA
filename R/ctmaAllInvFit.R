@@ -1,6 +1,6 @@
 #' ctmaAllInvFit
 #'
-#' #' @description Fit a CoTiMA model with all params (drift, T0var, diffusion) invariant across primary studies
+#' @description Fit a CoTiMA model with all params (drift, T0var, diffusion) invariant across primary studies
 #'
 #' @param ctmaInitFit ctmaInitFit
 #' @param activeDirectory activeDirectory
@@ -13,7 +13,6 @@
 #' @param indVaryingT0 Forces T0MEANS (T0 scores) to vary interindividually, which undos the nesting of T0(co-)variances in primary studies (default = TRUE). Was standard until Aug. 2022. Could provide better/worse estimates if set to FALSE.
 #' @param scaleTime scaleTime
 #' @param optimize optimize
-#' @param nopriors nopriors (TRUE, but deprecated)
 #' @param priors priors (FALSE)
 #' @param finishsamples finishsamples
 #' @param iter iter
@@ -29,7 +28,6 @@
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
 #' @param manifestVars define the error variances of the manifests with a single time point using R-type lower triangular matrix with nrow=n.manifest & ncol=n.manifest.
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
-#' @param indVaryingT0 Allows ct intercepts to vary at the individual level (random effects model, accounts for unobserved heterogeneity)
 #'
 #' @return returns a fitted CoTiMA object, in which all drift parameters, Time 0 variances and covariances, and diffusion parameters were set invariant across primary studies
 #'
@@ -44,7 +42,7 @@ ctmaAllInvFit <- function(
   indVarying=FALSE,
   scaleTime=NULL,
   optimize=TRUE,
-  nopriors=TRUE,
+  #nopriors=TRUE,
   priors=FALSE,
   finishsamples=NULL,
   iter=NULL,
@@ -59,11 +57,21 @@ ctmaAllInvFit <- function(
   CoTiMAStanctArgs=NULL,
   lambda=NULL,
   manifestVars=NULL,
-  indVaryingT0=TRUE
+  indVaryingT0=NULL
 )
 {
 
   if (is.null(verbose) & (optimize == FALSE) )  {verbose <- 0} else {verbose <- CoTiMAStanctArgs$verbose}
+
+  { # adaptations to account for new arguments introduces
+
+    #if (is.null(T0var)) T0var <- 'auto'
+    #if (is.null(cint)) cint <- 0
+    #if (is.null(fit)) fit <- TRUE
+    #if (is.null(WEC)) WEC <- FALSE
+    if (is.null(CoTiMAStanctArgs)) CoTiMAStanctArgs <- CoTiMA::CoTiMAStanctArgs
+  }
+
 
   # check if fit object is specified
   if (is.null(ctmaInitFit)){
@@ -81,7 +89,8 @@ ctmaAllInvFit <- function(
 
     if (!(is.null(scaleTime))) CoTiMAStanctArgs$scaleTime <- scaleTime
     if (!(is.null(optimize))) CoTiMAStanctArgs$optimize <- optimize
-    if (!(is.null(nopriors))) CoTiMAStanctArgs$nopriors <- nopriors
+    #if  (!(is.null(nopriors))) CoTiMAStanctArgs$nopriors <- nopriors # changed Jan 2024
+    if (!(is.null(priors))) CoTiMAStanctArgs$priors <- priors # added Jan 2024
     if (!(is.null(finishsamples))) CoTiMAStanctArgs$optimcontrol$finishsamples <- finishsamples
     if (!(is.null(chains))) CoTiMAStanctArgs$chains <- chains
     if (!(is.null(iter))) CoTiMAStanctArgs$iter <- iter
@@ -211,29 +220,12 @@ ctmaAllInvFit <- function(
     }
   }
 
-  #tmp0 <- matrix(diffNamesTmp, n.latent); tmp0
-  #tmp0[upper.tri(tmp0, diag=FALSE)] <- 0; tmp0
-  #diffNamesTmp <- tmp0; diffNamesTmp
-
-  # taken out and replaced 28 Sep 2022
-  #if (indVarying == TRUE) {
-  #  T0MEANS <- "auto"
-  #  #T0MEANS <- matrix(0, nrow=n.latent, ncol=1)
-  #  MANIFESTMEANS <- "auto"
-  #  #MANIFESTVAR <- "auto"
-  #  MANIFESTVAR=matrix(0, nrow=n.latent, ncol=n.latent)
-  #} else {
-  #  T0MEANS <- matrix(c(0), nrow = n.latent, ncol = 1)
-  #  MANIFESTMEANS <- matrix(c(0), nrow = n.latent, ncol = 1)
-  #  MANIFESTVAR <- matrix(0, nrow=n.latent, ncol=n.latent)
-  #}
   T0MEANS <- T0meansParams
   MANIFESTMEANS <- manifestMeansParams
   MANIFESTVAR <- manifestVarsParams
 
-  # CHD 13.6.2023
-  # CHD 9.6.2023
   if ((indVarying == 'cint') | (indVarying == 'Cint')) indVarying <- 'CINT'
+  if (is.null(indVaryingT0)) indVaryingT0 <- FALSE
 
     # CHD 9.6.2023
     if ( (indVarying == 'CINT') & (indVaryingT0 == TRUE) ) {
@@ -356,7 +348,8 @@ ctmaAllInvFit <- function(
     x1 <- paste0(activeDirectory, loadAllInvFit[1], ".rds"); x1
     results <- readRDS(file=x1)
   } else {
-    allFixedModelFit <- suppressMessages(ctsem::ctStanFit(
+    #allFixedModelFit <- suppressMessages(ctsem::ctStanFit(
+    allFixedModelFit <- (ctsem::ctStanFit(
       datalong = datalong_all,
       ctstanmodel = allFixedModel,
       savesubjectmatrices=CoTiMAStanctArgs$savesubjectmatrices,
@@ -368,11 +361,12 @@ ctmaAllInvFit <- function(
       intoverpop=CoTiMAStanctArgs$intoverpop,
       stationary=CoTiMAStanctArgs$stationary,
       plot=CoTiMAStanctArgs$plot,
-      derrind=CoTiMAStanctArgs$derrind,
+      #derrind=CoTiMAStanctArgs$derrind,
       optimize=CoTiMAStanctArgs$optimize,
       optimcontrol=CoTiMAStanctArgs$optimcontrol,
       nlcontrol=CoTiMAStanctArgs$nlcontrol,
-      nopriors=CoTiMAStanctArgs$nopriors,
+      priors=CoTiMAStanctArgs$priors,
+      #nopriors=CoTiMAStanctArgs$nopriors,
       chains=CoTiMAStanctArgs$chains,
       forcerecompile=CoTiMAStanctArgs$forcerecompile,
       savescores=CoTiMAStanctArgs$savescores,
@@ -382,8 +376,8 @@ ctmaAllInvFit <- function(
       warmup=CoTiMAStanctArgs$warmup,
       cores=coresToUse))
 
-    Msg <- "\nComputing results summary of all invariant model.\n"
-    message(Msg)
+    #Msg <- "\nComputing results summary of all invariant model.\n"
+    #message(Msg)
     allFixedModelFitSummary <- summary(allFixedModelFit, digits=digits)
   }
 
@@ -519,6 +513,7 @@ ctmaAllInvFit <- function(
   results <- list(plot.type="drift",  model.type="stanct",
                   coresToUse=coresToUse, n.studies=1,
                   n.latent=n.latent,
+                  ctModel=allFixedModel,
                   #studyList=ctmaInitFit$studyList,
                   studyFitList=list(allFixedModelFit),
                   data=datalong_all,
