@@ -255,7 +255,9 @@ ctmaShapeRawData <- function(
 
   ### Step 2a - (re-)label variables
   if ( !(is.null(allInputVariablesNames)) ) {
-    colnames(dataFrame) <- allInputVariablesNames
+    # CHD changed 7. May 2025
+    #colnames(dataFrame) <- allInputVariablesNames
+    colnames(tmpData) <- allInputVariablesNames
   }
 
   ### Step 2 - (Transpose data into wide format if they are in long format)
@@ -268,6 +270,21 @@ ctmaShapeRawData <- function(
       #ErrorMsg <- "\nUnfortunetaly, long format data as input is not yet implemented. Consider using the function ctLongToWide to make wide format data frame! \nGood luck for the next try!"
       #stop(ErrorMsg)
       tmpData <- tmpData[, c(id, targetTimeVariablesNames, targetInputVariablesNames, targetInputTDpredNames, targetInputTIpredNames)]
+      # CHD Added 19.4.2025 (check if time stamps exists more than once)
+      idToDelete <- c()
+      #head(tmpData)
+      for (i in unique(tmpData[, c(id)])){
+        tmpDat <- tmpData[tmpData[, c(id)]== i, ]
+        tmp1 <- table(tmpDat[,targetTimeVariablesNames])
+        tmp2 <- which(tmp1 > 1); tmp2
+        if (length(tmp2) > 0 ) idToDelete <- c(idToDelete, i)
+      }
+      #idToDelete
+      print(paste0("I completely eliminated cases with mutiple identical time points: ", idToDelete))
+      tmp3 <- which(tmpData[, c(id)] == idToDelete)
+      tmpData <- tmpData[-c(tmp3),]
+
+      #
       tmpData <- as.data.frame(ctsem::ctLongToWide(tmpData, id=id, time=targetTimeVariablesNames,
                                                    manifestNames = targetInputVariablesNames,
                                                    TDpredNames=targetInputTDpredNames,
@@ -295,10 +312,12 @@ ctmaShapeRawData <- function(
     #}
 
   }
-
   # Step 3 (Select the desired "target variables" (at least X and Y and time) and kick out the remaining stuff.)
   #c(targetInputVariablesNames,  targetInputTDpredNames, targetTimeVariablesNames, targetInputTIpredNames)
   tmp1 <- c(targetInputVariablesNames,  targetInputTDpredNames, targetTimeVariablesNames, targetInputTIpredNames); tmp1
+  which(colnames(tmpData) %in% tmp1)
+  targetInputVariablesNames
+  tmpData
   tmpData <- tmpData[, tmp1]
   #head(tmpData, 30)
   #apply(tmpData, 2, mean, na.rm=T)

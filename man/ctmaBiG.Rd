@@ -10,9 +10,11 @@ ctmaBiG(
   PETPEESEalpha = 0.1,
   activateRPB = FALSE,
   digits = 4,
+  finishsamples = 1000,
   zcurve = FALSE,
   undoTimeScaling = TRUE,
-  dt = NULL
+  dt = NULL,
+  excludeStudies = c()
 )
 }
 \arguments{
@@ -26,11 +28,15 @@ ctmaBiG(
 
 \item{digits}{rounding (default = 4)}
 
+\item{finishsamples}{number of samples to draw (either from hessian based covariance or posterior distribution) for dt computations (default = 1000).}
+
 \item{zcurve}{performs z-curve analysis. Could fail if too few studies (e.g. around 10) are supplied. default=FALSE}
 
 \item{undoTimeScaling}{if TRUE, the original time scale is used (timeScale argument possibly used in \code{\link{ctmaInit}} is undone )}
 
 \item{dt}{A scalar indicating a time interval across which discrete time effects should be estimated and then used for ctmaBiG.}
+
+\item{excludeStudies}{vector with studies to be excluded from ctmaBiG.}
 }
 \value{
 ctmaBiG returns a list containing some arguments supplied, the results of analyses of publication bias and generalizability,

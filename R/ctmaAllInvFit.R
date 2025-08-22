@@ -24,10 +24,12 @@
 #' @param customPar logical. If set TRUE (default) leverages the first pass using priors and ensure that the drift diagonal cannot easily go too negative (helps since ctsem > 3.4)
 #' @param T0means Default 0 (assuming standardized variables). Can be assigned labels to estimate them freely.
 #' @param manifestMeans Default 0 (assuming standardized variables). Can be assigned labels to estimate them freely.
-#' @param CoTiMAStanctArgs parameters that can be set to improve model fitting of the \code{\link{ctStanFit}} Function
+#' @param CoTiMAStanctArgs parameters that can be set to improve model fitting of the \code{\link[ctsem]{ctStanFit}} Function
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
 #' @param manifestVars define the error variances of the manifests with a single time point using R-type lower triangular matrix with nrow=n.manifest & ncol=n.manifest.
 #' @param lambda R-type matrix with pattern of fixed (=1) or free (any string) loadings.
+#'
+#' @importFrom utils packageDescription
 #'
 #' @return returns a fitted CoTiMA object, in which all drift parameters, Time 0 variances and covariances, and diffusion parameters were set invariant across primary studies
 #'
@@ -60,6 +62,9 @@ ctmaAllInvFit <- function(
   indVaryingT0=NULL
 )
 {
+
+
+  if (utils::packageDescription("ctsem")$Version > "3.10.2") type <- "ct" else type <- "stanct"
 
   if (is.null(verbose) & (optimize == FALSE) )  {verbose <- 0} else {verbose <- CoTiMAStanctArgs$verbose}
 
@@ -316,7 +321,7 @@ ctmaAllInvFit <- function(
                            DIFFUSION=matrix(diffParamsTmp, nrow=n.latent, ncol=n.latent), #, byrow=TRUE),
                            DRIFT=matrix(driftParamsTmp, nrow=n.latent, ncol=n.latent),
                            LAMBDA=lambdaParams,
-                           type='stanct',
+                           type=type,
                            CINT=matrix(0, nrow=n.latent, ncol=1),
                            T0MEANS=T0MEANS,
                            MANIFESTMEANS=MANIFESTMEANS,
@@ -350,6 +355,7 @@ ctmaAllInvFit <- function(
   } else {
     #allFixedModelFit <- suppressMessages(ctsem::ctStanFit(
     allFixedModelFit <- (ctsem::ctStanFit(
+      type=type,
       datalong = datalong_all,
       ctstanmodel = allFixedModel,
       savesubjectmatrices=CoTiMAStanctArgs$savesubjectmatrices,
@@ -510,7 +516,7 @@ ctmaAllInvFit <- function(
   DIFFUSION <- matrix(homAll_Diffusion_Coef, n.latent); DIFFUSION
   T0VAR <- matrix(homAll_T0VAR_Coef, n.latent); T0VAR
 
-  results <- list(plot.type="drift",  model.type="stanct",
+  results <- list(plot.type="drift",  model.type=type,
                   coresToUse=coresToUse, n.studies=1,
                   n.latent=n.latent,
                   ctModel=allFixedModel,

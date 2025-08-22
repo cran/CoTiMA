@@ -21,6 +21,7 @@ ctmaFit(
   drift = NULL,
   driftsToCompare = NULL,
   equalDrift = NULL,
+  experimental = FALSE,
   finishsamples = NULL,
   fit = TRUE,
   ind.mod.names = NULL,
@@ -75,7 +76,7 @@ ctmaFit(
 
 \item{coresToUse}{if negative, the value is subtracted from available cores, else value = cores to use}
 
-\item{CoTiMAStanctArgs}{parameters that can be set to improve model fitting of the \code{\link{ctStanFit}} Function}
+\item{CoTiMAStanctArgs}{parameters that can be set to improve model fitting of the \code{\link[ctsem]{ctStanFit}} Function}
 
 \item{ctmaInitFit}{object to which all single ctsem fits of primary studies has been assigned to (i.e., what has been returned by \code{\link{ctmaInit}})}
 
@@ -89,9 +90,11 @@ ctmaFit(
 
 \item{equalDrift}{Constrains all listed effects to be equal (e.g., equalDrift = c("V1toV2", "V2toV1")). Note that this is not required for testing the assumption that two effects are equal in the population. Use the invariantDrift argument and then \code{\link{ctmaEqual}})}
 
+\item{experimental}{Adds main effect of ind. level moderators}
+
 \item{finishsamples}{number of samples to draw (either from hessian based covariance or posterior distribution) for final results computation (default = 1000).}
 
-\item{fit}{TRUE (default) fits the requested model. FALSE returns the \code{\link{ctsem}} code CoTiMA uses to set up the model, the ctsemmodelbase which can be modified to match users requirements, and the data set (in long format created). The model can then be fitted using \code{\link{ctStanFit}})}
+\item{fit}{TRUE (default) fits the requested model. FALSE returns the ctsem-code CoTiMA uses to set up the model, the ctsemmodelbase which can be modified to match users requirements, and the data set (in long format created). The model can then be fitted using \code{\link[ctsem]{ctStanFit}})}
 
 \item{ind.mod.names}{vector of names for individual level (!) moderators used in output}
 
@@ -168,7 +171,7 @@ included in ' n.moderators. The most important new results are returned as the l
 function is applied to the returned object. The summary list element comprises "estimates" (the aggregated effects), possible
 randomEffects (not yet fully working),  the minus2ll value and its n.parameters, the opt.lag sensu Dormann & Griffin (2015) and the
 max.effects that occur at the opt.lag, clus.effects and mod.effects, and possible warning messages (message). Plot type is
-plot.type=c("drift") and model.type="stanct" ("omx" was deprecated).
+plot.type=c("drift") and model.type="ct" ("omx" was deprecated, "stanct" was used until ctsem version 3.10.2).
 }
 \description{
 Fits a ctsem model with invariant drift effects across primary studies, possible multiple moderators (but all of them of the

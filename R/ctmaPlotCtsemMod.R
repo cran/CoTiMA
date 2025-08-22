@@ -1,6 +1,6 @@
 #' ctmaPlotCtsemMod
 #'
-#' @description Plots moderator models using \code{\link{ctsem}} fit objects
+#' @description Plots moderator models using ctsem-fit objects
 #'
 #' @param ctStanFitObject The fit object with moderator (TIpred) effects to be plotted
 #' @param digits number of digits used for rounding
@@ -15,15 +15,17 @@
 #' @param mod.type Could be either "cont" or "cat"
 #' @param no.mod.cats Need to be specified if type = "cat". The number of categories should usually be equal the number of dummy variables used to represent the categorical moderator + 1.
 #' @param n.x.labels How many values to be used for indicating time points on the x-axis (0 is automatically added and should not be counted)
+#' @param x.Values.For.Mod.Values Positions where to plot the dots with moderator values. If set to 0, not moderator values will be plotted (default = NULL).
 #' @param plot plots figures if TRUE (default) otherwise only return moderated drift matrices
 #' @param plot.xMin default = 0
 #' @param plot.xMax default = NULL
-#' @param plot.yMin default = -1
-#' @param plot.yMax default = 1
+#' @param plot.yMin default = NULL. NULL sets the smallest y value to the smallest of all auto/cross effects plotted.
+#' @param plot.yMax default = NULL. NULL sets the largest y value to the largest of all auto/cross effects plotted.
 #' @param plot..type default = "l", # 2 dots .. are correct
 #' @param plot.lty default = 1
 #' @param plot.col default = "grey"
 #' @param plot.lwd default =  1.5
+#' @param dot.plot <- TRUE default =  plot dots
 #' @param dot.plot.type default =  "b" for the dots indicating the moderator values
 #' @param dot.plot.col default ="black" for the dots indicating the moderator values
 #' @param dot.plot.lwd default =  .5 for the dots indicating the moderator values
@@ -66,16 +68,18 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
                              mod.type = "cont",
                              no.mod.cats = NULL,
                              n.x.labels = NULL,
+                             x.Values.For.Mod.Values = NULL,
                              #
                              plot = TRUE,
                              plot.xMin = 0,
                              plot.xMax = NULL,
-                             plot.yMin = -1,
-                             plot.yMax = 1,
+                             plot.yMin = NULL, #-1,
+                             plot.yMax = NULL, # 1,
                              plot..type = "l", # 2 dots .. are correct
                              plot.lty = 1,
                              plot.col = "grey",
                              plot.lwd = 1.5,
+                             dot.plot = TRUE,
                              dot.plot.type = "b",
                              dot.plot.col = "black",
                              dot.plot.lwd = .5,
@@ -123,13 +127,8 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
       timeRange <- seq(timeRange[1], timeRange[2], timeRange[3])
     }
 
-    # CHD Aug 2023
-    #if (is.null(n.x.labels)) n.x.labels <- max(timeRange)/3  # the 0 is added automatically later, so that e.g., 12 will becomes 13, and 4 X labels will be printed
     if (is.null(n.x.labels)) n.x.labels <- length(timeRange)/3  # the 0 is added automatically later, so that e.g., 12 will becomes 13, and 4 X labels will be printed
-    #n.x.labels
 
-    # CHD Aug 2023
-    #if (n.x.labels < 1)  {
     if (max(timeRange) < 1)  {
       ErrorMsg <- "\nThe largest time interval is < 1. Cannot plot. Please specify larger time range, e.g., timeRange=seq(0, 10, .1). \nGood luck for the next try!"
       stop(ErrorMsg)
@@ -168,7 +167,6 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
       if (length(tmp1) > 0 ) mod.values.to.plot <- c(0, tmp2) else mod.values.to.plot <- c(tmp1, tmp2)
       if (weigthedEffectCoding == TRUE)  {
         mod.values.to.plot <- 1:(ncol(TIpred.values) + 1); mod.values.to.plot
-        #effectCodingWeights <- apply(TIpred.values, 2, unique); effectCodingWeights
         effectCodingWeights <- unique(TIpred.values); effectCodingWeights
       }
     } else{
@@ -201,9 +199,22 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
 
   {
     # poke moderator values that should be plotted into time range (for placing moderator labels in the plot)
-    xValueForModValue <- stats::quantile(timeRange, probs = seq(0, 1, 1/(toPlot+1))); xValueForModValue # used for positioning of moderator value in plot
-    usedTimeRange <- unique(sort(c(xValueForModValue, timeRange))); usedTimeRange # correcting for added time points
+    if (is.null(x.Values.For.Mod.Values)) {
+      xValueForModValue <- stats::quantile(timeRange, probs = seq(0, 1, 1/(toPlot+1))); xValueForModValue # used for positioning of moderator value in plot
+      usedTimeRange <- unique(sort(c(xValueForModValue[-1], timeRange))); usedTimeRange # correcting for added time points
+    } else {
+      if ( ( (min(x.Values.For.Mod.Values) < min(timeRange)) |
+             (max(x.Values.For.Mod.Values) > max(timeRange)) )
+           & (length(x.Values.For.Mod.Values) !=1) ) {
+        ErrorMsg <- "\nThe x.Values.For.Mod.Values argument provides values that lie outside the timeRange plotted!"
+        stop(ErrorMsg)
+      }
+      #xValueForModValue <- c(0, x.Values.For.Mod.Values)
+      xValueForModValue <- c(x.Values.For.Mod.Values)
+      usedTimeRange <- unique(sort(c(xValueForModValue[xValueForModValue >= min(timeRange)], timeRange))); usedTimeRange # correcting for added time points
+    }
     noOfSteps <- length(usedTimeRange); noOfSteps # can be placed later when generation plotPairs
+
 
     DRIFTCoeff <- list()
     tmp1 <- ctStanFitObject$stanfit$rawest[driftPos]; tmp1
@@ -220,7 +231,6 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
       }
     }  else {
       for (i in 1:n.mod.values.to.plot ) {
-        #i <- 1
         counter <- counter + 1 ; counter
         # horizontal position to plot the moderator labels
         currentXValueForModValue <- xValueForModValue[counter+1]; currentXValueForModValue
@@ -255,7 +265,9 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
         if (mod.type == "cat") {
           if (counter == 1) {
             tmpNames <- paste0("Raw Drift for Moderator Category No ", counter, ". (= raw Drift)"); tmpNames
-            DRIFTCoeff[[counter]] <- matrix(tmp1, n.latent, n.latent); DRIFTCoeff[[counter]] # copy main effects (= comparison group)
+            #DRIFTCoeff[[counter]] <- matrix(tmp1, n.latent, n.latent); DRIFTCoeff[[counter]] # copy main effects (= comparison group)
+            # CHD 9.6.2024
+            DRIFTCoeff[[counter]] <- matrix(rawDrift, n.latent, n.latent); DRIFTCoeff[[counter]] # copy main effects (= comparison group)
           } else {
             tmp2 <- ctStanFitObject$stanfit$transformedparsfull$TIPREDEFFECT[,driftPos, modPos[counter-1]]; tmp2
             rawMod <- matrix(tmp2, n.latent, n.latent, byrow=TRUE); rawMod
@@ -265,9 +277,6 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
         }
       }
     }
-    #DRIFTCoeff
-    #DRIFTCoeffBackup <- DRIFTCoeff
-    #lapply(DRIFTCoeff, function(x) x * 12)
 
     ### apply tform to drift elements that should be tformed (extracted into tforms) (tforms are rowwise) (effects in correct order)
     # get tforms for drift (rowwise extraction)
@@ -288,17 +297,21 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
         }
       }
     }
-    #DRIFTCoeff
-    #DRIFTCoeffBackup
 
     # compute dt drift coefficients (extracted rowumnwise; in the order of driftnames, not yet in ctmaPlot)
     # Function to compute discrete parameters using drift parameters and time-scaling factors
-    discreteDrift <- function(driftMatrix, timeScale, number) {
+    #discreteDrift <- function(driftMatrix, timeScale, number) {
+    discreteDrift <- function(driftMatrix, timeScale) {
       discreteDriftValue <- OpenMx::expm(timeScale %x% driftMatrix)
-      discreteDriftValue[number] }
+      discreteDriftValue }
     # values where to plot symbol for moderator value/cat
-    xValueForModValue2 <- xValueForModValue[-length(xValueForModValue)]; xValueForModValue2
-    xValueForModValue2 <- xValueForModValue[-1]; xValueForModValue2
+    if (is.null(x.Values.For.Mod.Values)) {
+      xValueForModValue2 <- xValueForModValue[-length(xValueForModValue)]; xValueForModValue2
+      xValueForModValue2 <- xValueForModValue2[-1]; xValueForModValue2
+    } else {
+      xValueForModValue2 <- xValueForModValue; xValueForModValue2
+    }
+
     #
     discreteDriftCoeff <- array(dim=c(n.mod.values.to.plot, length(usedTimeRange), n.latent^2))
     for (h in 1:n.mod.values.to.plot) {
@@ -326,16 +339,25 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
     plot.xMax <- length(plotPairs[1, ,1]); plot.xMax
 
     for (i in 1:n.latent^2) {
-      #i <- 2
+      #i <- 1
       graphics::plot.new()
       graphics::par(new=F)
-      if (i %in% autoEffects) {
-        plot.yMin <- min(plotPairs[, ,autoEffects])[1]; plot.yMin
-        plot.yMax <- max(plotPairs[, ,autoEffects])[1]; plot.yMax
-      } else {
-        plot.yMin <- min(plotPairs[, ,crossEffects])[1]; plot.yMin
-        plot.yMax <- max(plotPairs[, ,crossEffects])[1]; plot.yMax
+
+      if (is.null(plot.yMin)) {
+        if (k %in% autoEffects) {
+          plot.yMin <- min(plotPairs[, ,autoEffects])[1]; plot.yMin
+        } else {
+          plot.yMin <- min(plotPairs[, ,crossEffects])[1]; plot.yMin
+        }
       }
+      if (is.null(plot.yMax)) {
+        if (k %in% autoEffects) {
+          plot.yMax <- max(plotPairs[, ,autoEffects])[1]; plot.yMax
+        } else {
+          plot.yMax <- max(plotPairs[, ,crossEffects])[1]; plot.yMax
+        }
+      }
+
       for (h in 1:toPlot) {
         #h <- 1
         # slopes
@@ -344,46 +366,55 @@ ctmaPlotCtsemMod <- function(ctStanFitObject = NULL,
         graphics::par(new=T)
         if (h == 1) {
           plot(currentPlotPair, type=plot..type, col=plot.col, lwd=plot.lwd, lty=plot.lty,
-               xlim = c(0, plot.xMax),
+               #xlim = c(0, plot.xMax),
+               xlim = c(usedTimeRange[1] , plot.xMax),
                ylim = c(plot.yMin, plot.yMax),
                xaxt='n',
                ann=FALSE)
         } else  {
           plot(currentPlotPair, type=plot..type, col=plot.col, lwd=plot.lwd, lty=plot.lty,
-               xlim = c(0, plot.xMax),
+               xlim = c(usedTimeRange[1], plot.xMax),
                ylim = c(plot.yMin, plot.yMax),
                xaxt='n',
                yaxt='n',
                ann=FALSE)
         }
+
         # dots
-        currentPlotPair <- dotPlotPairs[h, ,i]
-        currentPlotPair <- cbind(1:length(usedTimeRange), currentPlotPair)
-        tmp1 <- which(!(is.na(currentPlotPair[,2]))); tmp1 #retain only first and the dot position
-        tmp1 <- c(1, tmp1); tmp1
-        currentPlotPair <- currentPlotPair[tmp1,]
-        graphics::par(new=T)
-        plot(currentPlotPair[,], type=dot.plot.type, col=dot.plot.col, lwd=dot.plot.lwd,
-             pch=dot.plot.pch, lty=dot.plot.lty, cex=dot.plot.cex,
-             xlim = c(0, plot.xMax), ylim = c(plot.yMin, plot.yMax),
-             xaxt='n', yaxt='n', ann=FALSE)
-        #
-        currentLabel <- ""
-        if (mod.type == "cont") currentLabel <- mod.sd.to.plot[h]; currentLabel
-        if (mod.type == "cat") currentLabel <- h-1; currentLabel
-        #graphics::par(new=T)
-        if (nchar(currentLabel) == 1) graphics::text(currentPlotPair, labels=currentLabel, cex=1.2, col="white")
-        if (nchar(currentLabel) == 2) graphics::text(currentPlotPair, labels=currentLabel, cex=.8, col="white")
-        if (nchar(currentLabel) == 3) graphics::text(currentPlotPair, labels=currentLabel, cex=.6, col="white")
-        if (nchar(currentLabel) == 4) graphics::text(currentPlotPair, labels=currentLabel, cex=.6, col="white")
-        if (nchar(currentLabel) > 4) graphics::text(currentPlotPair, labels=currentLabel, cex=.4, col="white")
-        #graphics::par(new=T)
+        doIt = FALSE
+        if (is.null(x.Values.For.Mod.Values)) doIt <- TRUE
+        if (!(all(x.Values.For.Mod.Values == 0))) doIt <- TRUE
+        #if ((!(all(x.Values.For.Mod.Values == 0))) | (is.null(x.Values.For.Mod.Values)))  {
+        if ( (doIt == TRUE) & (dot.plot == TRUE))  {
+          currentPlotPair <- dotPlotPairs[h, ,i]
+          currentPlotPair <- cbind(1:length(usedTimeRange), currentPlotPair)
+          tmp1 <- which(!(is.na(currentPlotPair[,2]))); tmp1 #retain only first and the dot position
+          tmp1 <- c(1, tmp1); tmp1
+          currentPlotPair <- currentPlotPair[tmp1,]
+          graphics::par(new=T)
+          plot(currentPlotPair[,], type=dot.plot.type, col=dot.plot.col, lwd=dot.plot.lwd,
+               pch=dot.plot.pch, lty=dot.plot.lty, cex=dot.plot.cex,
+               xlim = c(0, plot.xMax), ylim = c(plot.yMin, plot.yMax),
+               xaxt='n', yaxt='n', ann=FALSE)
+          #
+          currentLabel <- ""
+          if (mod.type == "cont") currentLabel <- mod.sd.to.plot[h]; currentLabel
+          if (mod.type == "cat") currentLabel <- h-1; currentLabel
+          if (nchar(currentLabel) == 1) graphics::text(currentPlotPair, labels=currentLabel, cex=1.2, col="white")
+          if (nchar(currentLabel) == 2) graphics::text(currentPlotPair, labels=currentLabel, cex=.8, col="white")
+          if (nchar(currentLabel) == 3) graphics::text(currentPlotPair, labels=currentLabel, cex=.6, col="white")
+          if (nchar(currentLabel) == 4) graphics::text(currentPlotPair, labels=currentLabel, cex=.6, col="white")
+          if (nchar(currentLabel) > 4) graphics::text(currentPlotPair, labels=currentLabel, cex=.4, col="white")
+        }
       }
+
       # axis
       x.labels <- seq(0, max(timeRange),(max(timeRange)/ n.x.labels))[-1]; x.labels # without 0
       stepSize <- (plot.xMax/length(x.labels)); stepSize
       x.pos <- seq(0, plot.xMax, stepSize); x.pos
-      x.labels <- round(seq(0, max(timeRange),(max(timeRange)/ n.x.labels)), 2); x.labels # now with 0
+      #x.labels <- round(seq(0, max(timeRange),(max(timeRange)/ n.x.labels)), 2); x.labels # now with 0
+      x.labels <- round(seq(min(usedTimeRange), max(usedTimeRange),
+                            (max(usedTimeRange)-min(usedTimeRange))/n.x.labels), 2); x.labels # now with 0
       graphics::par(new=T)
       axis(1, labels=x.labels,
            at = x.pos, las=2)
