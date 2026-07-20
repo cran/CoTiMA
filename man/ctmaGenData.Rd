@@ -9,45 +9,54 @@ ctmaGenData(
   burnin = 0,
   cint = NULL,
   coresToUse = 2,
+  ctmaExtract = FALSE,
   diff = NULL,
   digits = 4,
-  doPar = 1,
+  doPar = FALSE,
   drift = NULL,
   empirical = TRUE,
+  envir = NULL,
   sampleSizes = 100,
   lambda = NULL,
   latentNames = NULL,
-  manifestMeans = 0,
-  manifestVars = 0,
-  missings = 0,
+  manifestMeans = NULL,
+  manifestVars = NULL,
+  manifestNames = NULL,
+  missings = NULL,
+  modValues = 0,
   n.latent = NULL,
-  n.manifest = 0,
-  randomIntercepts = 0,
+  n.manifest = NULL,
+  randomIntercepts = NULL,
   T0means = 0,
   T0var = NULL,
   TIpreds = NULL,
   tpoints = 10,
-  tpointTargets = NULL
+  tpointTargets = NULL,
+  useRawData = NULL
 )
 }
 \arguments{
 \item{activeDirectory}{defines active directory where files are saved. No default.}
 
-\item{burnin}{vector of inititial time points to be deleted (default = 0)}
+\item{burnin}{vector of initial time points to be deleted (default = 0)}
 
 \item{cint}{list of cint matrices. By default (NULL), cint matrices will be used that create a steady-state (i.e., means at all time points = T0means)}
 
 \item{coresToUse}{if neg., the value is subtracted from available cores, else value = cores to use.}
 
+\item{ctmaExtract}{if TRUE (default = FALSE) uses ctmaExtract to extract objects required for CoTiMA into the environment specified using the argument envir. Requires the argument useRawData to be set to TRUE or FALSE.}
+
 \item{diff}{list of diffusion matrices. By default (NULL), diffusion matrices will be used that create a steady-state (i.e., covariance at all time points = T0var)}
 
 \item{digits}{number of digits used for rounding (in outputs).}
 
-\item{doPar}{parallel generating of data. A value > 1 will generate data for doPar studies (default = 1) in parallel mode during which no output is generated (screen remains silent).}
+\item{doPar}{parallel generating of data. if TRUE, data are generated in coresToUse parallel loops during which no output is generated (screen remains silent).}
 
 \item{drift}{list of drift matrices. No default (all = NULL).}
 
-\item{empirical}{whether (default) or not generated data should allow for exact estimation of parameters (no random variance; not useful for MC simulations). This applies only if all Tpoints are used (see argument missings)}
+\item{empirical}{whether (default) or not generated data that should be independent as generally assumed (e.g., diffusions at different time points, T0var, etc)  are truly independent. Allow for exact estimation of parameters (no random variance; not useful for MC simulations). May require large sample sizes.}
+
+\item{envir}{environment where objects should be extracted too. NULL by default. Typically one would use the global environment (envir = globalenv()). Has to be specified if ctmaExtract is set to TRUE.}
 
 \item{sampleSizes}{vector of sample sizes. Default = 100.}
 
@@ -59,7 +68,11 @@ ctmaGenData(
 
 \item{manifestVars}{list of manifest error (co-)variances matrices. By default all are = 0.}
 
+\item{manifestNames}{names for manifest variables (default = NULL using generic names)}
+
 \item{missings}{proportion of missings (default = 0, which does not delete any value)}
+
+\item{modValues}{list of moderator values (possible used to generate the list of drift matrices provided). By default all are = 0.}
 
 \item{n.latent}{number of latent variables of the model No default (all = NULL).}
 
@@ -76,6 +89,8 @@ ctmaGenData(
 \item{tpoints}{vector of number of tpoints to be generated (default = 10).}
 
 \item{tpointTargets}{list of vectors of tpoints to be selectd (default = burnin:tpoints).}
+
+\item{useRawData}{if TRUE (or FALSE) and ctmaExtract is also TRUE, creates rawData (or empcov) objects required for CoTiMA into the environment specified using the argument envir.}
 }
 \value{
 ctmaGenData returns a list containing ...

@@ -9,7 +9,7 @@
 #' @param checkSingleStudyResults Displays estimates from single study ctsem models and waits for user input to continue. Useful to check estimates before they are saved.
 #' @param cint default 'auto' (= 0). Are set free if random intercepts model with varying cints is requested (by indVarying='cint')
 #' @param coresToUse if neg., the value is subtracted from available cores, else value = cores to use
-#' @param CoTiMAStanctArgs parameters that can be set to improve model fitting of the \code{\link[ctsem]{ctStanFit}} Function
+#' @param CoTiMAStanctArgs parameters that can be set to improve model fitting of the \code{\link[ctsem]{ctFit}} Function
 #' @param customPar logical. If set TRUE leverages the first pass using priors and ensure that the drift diagonal cannot easily go too negative (helps since ctsem > 3.4)
 #' @param diff labels for diffusion effects. Have to be either of the character strings of the type "diff_eta1" or "diff_eta2_eta1" (= freely estimated) or values (e.g., 0 for effects to be excluded, which is usually not recommended)
 #' @param digits number of digits used for rounding (in outputs)
@@ -17,7 +17,7 @@
 #' @param drift labels for drift effects. Have to be either of the character strings of the type V1toV2 (= freely estimated) or values (e.g., 0 for effects to be excluded, which is usually not recommended)
 #' @param experimental used for debugging puposes (default = FALSE)
 #' @param finishsamples number of samples to draw (either from hessian based covariance or posterior distribution) for final results computation (default = 1000).
-#' @param fit TRUE (default) fits the requested model. FALSE returns the ctsem-code CoTiMA uses to set up the model, the ctsemmodelbase which can be modified to match users requirements, and the data set (in long format created). The model can then be fitted using \code{\link[ctsem]{ctStanFit}})
+#' @param fit TRUE (default) fits the requested model. FALSE returns the ctsem-code CoTiMA uses to set up the model, the ctsemmodelbase which can be modified to match users requirements, and the data set (in long format created). The model can then be fitted using \code{\link[ctsem]{ctFit}})
 #' @param indVarying control for unobserved heterogeneity by having randomly (inter-individually) varying manifest means
 #' @param indVaryingT0 deprecated. Automatically set to NULL.
 #' @param iter number of interation (defaul = 1000). Sometimes larger values could be required fom Bayesian estimation
@@ -32,7 +32,7 @@
 #' @param priors if FALSE, any priors are disabled – sometimes desirable for optimization
 #' @param randomIntercepts (default = FALSE) Experimental. Overrides ctsem's default mode for modelling indVarying cints.
 #' @param sameInitialTimes Only important for raw data. If TRUE (default=FALSE), T0MEANS occurs for every subject at the same time, rather than just at the earliest observation.
-#' @param saveRawData save (created pseudo) raw date. List: saveRawData$studyNumbers, $fileName, $row.names, col.names, $sep, $dec
+#' @param saveRawData save (synthesised pseudo) raw date. List: saveRawData$studyNumbers, $fileName, $row.names, col.names, $sep, $dec
 #' @param saveSingleStudyModelFit save the fit of single study ctsem models (could save a lot of time afterwards if the fit is loaded)
 #' @param scaleTI scale TI predictors
 #' @param scaleTime scale time (interval) - sometimes desirable to improve fitting
@@ -46,7 +46,7 @@
 #' @importFrom RPushbullet pbPost
 #' @importFrom crayon red blue
 #' @importFrom parallel detectCores
-#' @importFrom ctsem ctDeintervalise ctLongToWide ctIntervalise ctWideToLong ctModel ctStanFit ctExtract ctCollapse
+#' @importFrom ctsem ctDeintervalise ctLongToWide ctIntervalise ctWideToLong ctModel ctFit ctExtract ctCollapse
 #' @importFrom utils read.table write.table packageDescription
 #' @importFrom openxlsx addWorksheet writeData createWorkbook openXL saveWorkbook
 #' @importFrom doParallel registerDoParallel
@@ -74,7 +74,7 @@
 #' manifest on latent factors is returned as lambda, and a re-organized list of primary studies with some information ommited is returned as
 #' studyList. The fitted models for each primary study are found in studyFitList, which is a large list with many elements (e.g., the ctsem
 #' model specified by CoTiMA, the rstan model created by ctsem, the fitted rstan model etc.). Further results returned are emprawList
-#' (containing the pseudo raw data created), statisticsList (comprising baisc stats such as average sample size, no. of measurement points,
+#' (containing the synthesised raw data created), statisticsList (comprising baisc stats such as average sample size, no. of measurement points,
 #' etc.), a list with modelResults (i.e., DRIFT=model_Drift_Coef, DIFFUSION=model_Diffusion_Coef, T0VAR=model_T0var_Coef,
 #' CINT=model_Cint_Coef), and the paramter names internally used. The summary list,  which is printed if the summary function is applied to the
 #' returned object, comprises "estimates" (the aggregated effects), possible randomIntercepts,confidenceIntervals, the
@@ -132,6 +132,63 @@ ctmaInit <- function(
   original.options <- getOption("scipen"); original.options
   options(scipen = 999); options("scipen") # turn scientific notation off.
   on.exit(options(scipen = original.options))  # scientific notation as user's original
+
+  catchWarnings <- FALSE
+  if (catchWarnings) { # function definition to handle possible errors and warnings during fitting
+    run_ctStanFit_logged <- function(expr) {
+      flag_warn_hessinv <- FALSE
+      warn_msgs <- character(0)
+
+      out <- tryCatch(
+        withCallingHandlers(
+          expr,
+          warning = function(w) {
+            msg <- conditionMessage(w)
+            warn_msgs <<- c(warn_msgs, msg)
+
+            if (grepl("Hessian inversion failed", msg, fixed = TRUE)) {
+              flag_warn_hessinv <<- TRUE
+            }
+
+            #invokeRestart("muffleWarning")  # optional: Konsole sauber halten
+          }
+        ),
+        error = function(e) {
+          # Error sauber zurückgeben statt Abbruch
+          err_msg <- conditionMessage(e)
+
+          # optional: "inits = c(...)" aus dem Text ziehen (wenn ctsem das ausgibt)
+          inits_txt <- NA_character_
+          m <- regexpr("inits\\s*=\\s*c\\([^\\)]*\\)", err_msg)
+          if (m[1] != -1) inits_txt <- regmatches(err_msg, m)
+
+          return(list(
+            ok = FALSE,
+            fit = NULL,
+            warn_hessinv = flag_warn_hessinv,
+            warnings = warn_msgs,
+            error = err_msg,
+            inits_suggestion = inits_txt
+          ))
+        }
+      )
+
+      # Wenn kein Error: out ist der Fit
+      if (!is.list(out) || isTRUE(inherits(out, "ctFit"))) {
+        return(list(
+          ok = TRUE,
+          fit = out,
+          warn_hessinv = flag_warn_hessinv,
+          warnings = warn_msgs,
+          error = NA_character_,
+          inits_suggestion = NA_character_
+        ))
+      }
+
+      # Wenn error-handler schon list() geliefert hat:
+      out
+    }
+  }
 
 
   #######################################################################################################################
@@ -357,7 +414,7 @@ ctmaInit <- function(
       }
     }
 
-    ### create pseudo raw data for all studies or load raw data if available & specified
+    ### synthesise pseudo raw data for all studies or load raw data if available & specified
     empraw <- lags <- moderators <- emprawMod <- allSampleSizes <- lostN <- overallNDiff <- relativeNDiff <- list()
     emprawLong <- list()
     empraw.ind.mod <- list() # CHD 19.6.2023
@@ -378,7 +435,7 @@ ctmaInit <- function(
     }
 
     for (i in 1:n.studies) {
-      #i <- 1
+      #i <- 2
       if (!(studyList[[i]]$originalStudyNo %in% loadRawDataStudyNumbers)) {
         currentSampleSize <- (lapply(studyList, function(extract) extract$sampleSize))[[i]]; currentSampleSize
         currentTpoints <- (lapply(studyList, function(extract) extract$timePoints))[[i]]; currentTpoints
@@ -400,7 +457,7 @@ ctmaInit <- function(
           }
         }
 
-        # Create Pseudo Raw Data
+        # Synthesise Pseudo Raw Data
         if (!(studyList[[i]]$originalStudyNo %in% loadSingleStudyModelFit)) {
           tmp1 <- paste0(" Create Pseudo Raw Data for Study No. ", i, ".    Could take long !!! ")
           tmp2 <- nchar(tmp1); tmp2
@@ -413,7 +470,7 @@ ctmaInit <- function(
         }
 
 
-        # reduce computation time by creating Pseudo Raw Data with small sample size because the data are loaded anyway
+        # reduce computation time by synthesising pseudo Raw Data with small sample size because the data are loaded anyway
         currentSampleSizeTmp <- currentSampleSize
         currentPairwiseNTmp <- currentPairwiseN
         currentEmpcovTmp <- currentEmpcov
@@ -636,7 +693,7 @@ ctmaInit <- function(
         }
       }
 
-      # augment pseudo raw data for stanct model
+      # augment synthesised pseudo raw data for stanct model
       {
         dataTmp <- empraw[[i]]
         dataTmp2 <- ctsem::ctWideToLong(dataTmp, Tpoints=currentTpoints, n.manifest=n.var, #n.TIpred = (n.studies-1),
@@ -831,9 +888,10 @@ ctmaInit <- function(
     model_popcov_m <- model_popcov_sd <- model_popcov_T <- model_popcov_025 <- model_popcov_50 <- model_popcov_975 <- list()
     model_popcor_m <- model_popcor_sd <- model_popcor_T <- model_popcor_025 <- model_popcor_50 <- model_popcor_975 <- list()
     estProb <- list()
+    hessianWarning <- list()
 
     for (i in 1:n.studies) {
-      #i <- 1
+      #i <- 12
       notLoadable <- TRUE
       if ( (length(loadSingleStudyModelFit) > 1) & (studyList[[i]]$originalStudyNo %in% loadSingleStudyModelFit[-1]) ) {
         tmp1 <- paste0(" LOADING SingleStudyFit ", i, " of ", n.studies, " (Study: ", studyList[[i]]$originalStudyNo, ") ")
@@ -1075,13 +1133,17 @@ ctmaInit <- function(
 
         # FIT STANCT MODEL
         if (fit == TRUE) {
+          CoTiMAStanctArgs$optimcontrol$bootstrapUncertainty <- NULL
           if (doPar < 2) {
             # CHD changed 7 Oct 2022
             if (any(is.na(studyList[[i]]$startValues))) inits <- NULL else inits <- studyList[[i]]$startValues
+
+            hessianWarning[[i]] <- FALSE
+
             #results <- suppressMessages(ctsem::ctStanFit(
-            results <- (ctsem::ctStanFit(
+            results <- ctsem::ctFit(
               datalong = emprawLong[[i]],
-              ctstanmodel = currentModel,
+              model = currentModel,
               fit=fit,
               sameInitialTimes=sameInitialTimes,
               #inits=studyList[[i]]$startValues,
@@ -1108,8 +1170,28 @@ ctmaInit <- function(
               vb = CoTiMAStanctArgs$vb,
               #warmup=CoTiMAStanctArgs$warmup,
               verbose=verbose,
-              cores=coresToUse) )
-          }
+              cores=coresToUse)
+
+            #hessianWarning[[i]] <- list(warn_hessinv = results$warn_hessinv,
+            #                            warnings = results$warnings,
+            #                            error= results$error)
+
+            #if (is.na(results$error)) { # CHD 20.7.2026
+            #if (is.null(results$error)) {
+              #results <- results$fit # to match former fitting results w/o error handling # CHD 20.7.2026
+              results_summary <- summary(results, digits=2*digits, parmatrices=TRUE, residualcov=FALSE)
+            #if (!is.null(results$error)) { # CHD 20.7.2026
+              #fit <- FALSE
+            #  print(paste0("#################################################################################"))
+            #  print(paste0("###########  Model could not be fitted, only data and code are returned #########"))
+            #  print(paste0("#################################################################################"))
+            #  hessianWarning[[i]] <- list(warn_hessinv = "There was fatal fitting error - no hessian computed.",
+            #                              warnings = "There was fatal fitting error - no hessian computed.",
+            #                              error= results$error)
+            #}
+          } # end if forPar
+
+
           if (doPar > 1) {
             # parallel re-fitting of problem study
 
@@ -1127,12 +1209,15 @@ ctmaInit <- function(
             #message(Msg)
 
             allfits <- foreach::foreach(p=1:doPar) %dopar% {
+
+              hessianWarning[[i]] <- FALSE
+
               # CHD changed 7 Oct 2022
               if (any(is.na(studyList[[i]]$startValues))) inits <- NULL else inits <- studyList[[i]]$startValues
 
-              fits <- suppressMessages(ctsem::ctStanFit(
+              fits <- suppressMessages(run_ctStanFit_logged(ctsem::ctFit(
                 datalong = emprawLong[[i]],
-                ctstanmodel = currentModel,
+                model = currentModel,
                 sameInitialTimes=sameInitialTimes,
                 inits=inits,
                 savesubjectmatrices=CoTiMAStanctArgs$savesubjectmatrices,
@@ -1156,7 +1241,25 @@ ctmaInit <- function(
                 control=CoTiMAStanctArgs$control,
                 verbose=verbose,
                 warmup=CoTiMAStanctArgs$warmup,
-                cores=1) )
+                cores=1) ))
+
+              hessianWarning[[i]] <- list(warn_hessinv = fits$warn_hessinv,
+                                          warnings = fits$warnings,
+                                          error= fits$error)
+
+              if (is.na(fits$error)) {
+                fits <- fits$fit # to match former fitting results w/o error handling
+                #results_summary <- summary(results, digits=2*digits, parmatrices=TRUE, residualcov=FALSE)
+              } else {
+                #fit <- FALSE
+                print(paste0("#################################################################################"))
+                print(paste0("###########  Model could not be fitted, only data and code are returned #########"))
+                print(paste0("#################################################################################"))
+                hessianWarning[[i]] <- list(warn_hessinv = "There was fatal fitting error - no hessian computed.",
+                                            warnings = "There was fatal fitting error - no hessian computed.",
+                                            error= results$error)
+              }
+
               return(fits)
             }
             all_loglik <- unlist(lapply(allfits, function(x) x$stanfit$optimfit$value)); all_loglik
@@ -1261,9 +1364,11 @@ ctmaInit <- function(
           tmp1 <- c(matrix(resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DRIFT", "2.5%"], n.latent, byrow=FALSE)); tmp1
           tmp2 <- c(matrix(resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DRIFT", "97.5%"], n.latent, byrow=FALSE)); tmp2
           tmp8 <- which(!(is.na(currentModel$pars[currentModel$pars$matrix == "DRIFT",]$param))); tmp8
-          tmp1 <- tmp1[tmp8]
-          tmp2 <- tmp2[tmp8]
+          tmp1 <- tmp1[tmp8]; tmp1
+          tmp2 <- tmp2[tmp8]; tmp2
         }
+
+        #tmp1; tmp2
         # CHD 19. Nov. 2023 Check if LL == UL or LL == 0  or UL == 0, indicating estimation problems (estProb)
         tmp3a <- which(tmp1 - tmp2 == 0); tmp3a
         tmp3b <- which(tmp1 == 0); tmp3b
@@ -1273,31 +1378,52 @@ ctmaInit <- function(
         tmp6 <- rownames(resultsSummary$popmeans)[tmp]; tmp6
         if (any(tmp4 != 0)) estProb[[length(estProb)+1]] <- paste0("Possible problems for Study ", i, " in estimating: ", paste0(tmp6[tmp4], collapse=" "))
 
+        #estProb
         model_Drift_CI[[i]] <- c(rbind(tmp1, tmp2)); model_Drift_CI[[i]]
         tmp3 <- c(rbind(paste0(driftFullNames, "LL"),
                         paste0(driftFullNames, "UL"))); tmp3
         names(model_Drift_CI[[i]]) <- tmp3; model_Drift_CI[[i]]
 
         tmp <- grep("diff", rownames(resultsSummary$popmeans)); tmp
+        #(!(length(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "Mean"]) == 0))
         if (!(length(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "Mean"]) == 0)) {
           model_Diffusion_Coef[[i]] <- (resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "Mean"])
           names(model_Diffusion_Coef[[i]]) <- rownames(resultsSummary$popmeans)[tmp]
         } else {
-          model_Diffusion_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DIFFUSIONcov", "Mean"])
-          tmp8 <- which(!(is.na(currentModel$pars[currentModel$pars$matrix == "DRIFT",]$param))); tmp8
-          model_Diffusion_Coef[[i]] <- model_Diffusion_Coef[[i]][tmp8]
-          names(model_Diffusion_Coef[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]))
+          model_Diffusion_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DIFFUSIONcov", "Mean"]); model_Diffusion_Coef[[i]]
+          # CHD 3.3.2026
+          #(randomInterceptsSettings != FALSE)
+          if (randomInterceptsSettings != FALSE) {
+            tmp9 <- matrix(model_Diffusion_Coef[[i]], length(model_Diffusion_Coef[[i]])^.5, length(model_Diffusion_Coef[[i]])^.5)
+            model_Diffusion_Coef[[i]] <- c(tmp9[1:n.latent, 1:n.latent]); model_Diffusion_Coef[[i]]
+            names(model_Diffusion_Coef[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[grep("diff_", rownames(resultsSummary$popmeans))]))
+          } else {
+            model_Diffusion_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DIFFUSIONcov", "Mean"])
+            tmp8 <- which(!(is.na(currentModel$pars[currentModel$pars$matrix == "DRIFT",]$param))); tmp8
+            model_Diffusion_Coef[[i]] <- model_Diffusion_Coef[[i]][tmp8]
+            names(model_Diffusion_Coef[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]))
+          }
         }
+        #model_Diffusion_Coef[[i]]
 
+        #(!(is.null(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "Sd"])))
         if (!(is.null(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "Sd"]))) {
-          model_Diffusion_SE[[i]] <- (resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "Sd"]) #; model_Diffusion_SE[[i]]
+          model_Diffusion_SE[[i]] <- (resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "sd"]) #; model_Diffusion_SE[[i]]
           names(model_Diffusion_SE[[i]]) <- rownames(resultsSummary$popmeans)[tmp]
         } else {
-          model_Diffusion_SE[[i]] <- resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DIFFUSIONcov", "sd"] #; model_Diffusion_SE[[i]]
-          tmp8 <- which(!(is.na(currentModel$pars[currentModel$pars$matrix == "DRIFT",]$param))); tmp8
-          model_Diffusion_SE[[i]] <- model_Diffusion_SE[[i]][tmp8]
-          names(model_Diffusion_SE[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]))
+          model_Diffusion_SE[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DIFFUSIONcov", "sd"]); model_Diffusion_SE[[i]]
+          if (randomInterceptsSettings != FALSE) {
+            tmp9 <- matrix(model_Diffusion_SE[[i]], length(model_Diffusion_SE[[i]])^.5, length(model_Diffusion_SE[[i]])^.5)
+            model_Diffusion_SE[[i]] <- c(tmp9[1:n.latent, 1:n.latent]); model_Diffusion_SE[[i]]
+            names(model_Diffusion_SE[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[grep("diff_", rownames(resultsSummary$popmeans))]))
+          } else {
+            model_Diffusion_SE[[i]] <- resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "DIFFUSIONcov", "sd"] #; model_Diffusion_SE[[i]]
+            tmp8 <- which(!(is.na(currentModel$pars[currentModel$pars$matrix == "DRIFT",]$param))); tmp8
+            model_Diffusion_SE[[i]] <- model_Diffusion_SE[[i]][tmp8]
+            names(model_Diffusion_SE[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]))
+          }
         }
+        #model_Diffusion_SE[[i]]
 
         if (!(length(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "2.5%"])) == 0) {
           tmp1 <- resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "DIFFUSIONcov", "2.5%"]; tmp1
@@ -1317,6 +1443,8 @@ ctmaInit <- function(
                           paste0(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]), "UL"))); tmp3
           names(model_Diffusion_CI[[i]]) <- tmp3; model_Diffusion_CI[[i]]
         }
+        #model_Diffusion_CI[[i]]
+
         # CHD 19. Nov. 2023 Check if LL == UL or LL == 0  or UL == 0, indicating estimation problems (estProb)
         tmp3a <- which(tmp1 - tmp2 == 0); tmp3a
         tmp3b <- which(tmp1 == 0); tmp3b
@@ -1326,7 +1454,9 @@ ctmaInit <- function(
         tmp6 <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp5])); tmp6
         if (any(tmp4 != 0)) estProb[[length(estProb)+0]] <- paste0(estProb[[length(estProb)+0]], " ", paste0(tmp6[tmp4], collapse=" "))
 
-        if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") )  target <- "T0cov_" else target <- "0var"
+        #estProb
+        #if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") )  target <- "T0cov_" else target <- "0var"
+        if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") | (randomIntercepts == "CINT") )  target <- "T0cov_" else target <- "0var"
         tmp <- grep(target, rownames(resultsSummary$popmeans)); tmp
         if (length(tmp) == 0) {
           tmp <- grep("0cov", resultsSummary$parmatrices$matrix)
@@ -1341,19 +1471,25 @@ ctmaInit <- function(
           model_T0var_Coef[[i]] <- (resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "Mean"])
           names(model_T0var_Coef[[i]]) <- rownames(resultsSummary$popmeans)[tmp]; model_T0var_Coef[[i]]
         }  else {
-          model_T0var_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "Mean"])
-          if (length(model_T0var_Coef[[i]]) != n.latent^2) {
-            names(model_T0var_Coef[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]))
+          model_T0var_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "Mean"]); model_T0var_Coef[[i]]
+          if (randomInterceptsSettings != FALSE) {
+            model_T0var_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "Mean"]);  model_T0var_Coef[[i]]
+            model_T0var_Coef[[i]] <- c(matrix(model_T0var_Coef[[i]], n.latent^2, n.latent^2)[1:n.latent, 1:n.latent]); model_T0var_Coef[[i]]
+            names(model_T0var_Coef[[i]]) <- T0covNames
           } else {
-            names(model_T0var_Coef[[i]]) <- T0covNames
+            if (length(model_T0var_Coef[[i]]) != n.latent^2) {
+              names(model_T0var_Coef[[i]]) <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp]))
+            } else {
+              names(model_T0var_Coef[[i]]) <- T0covNames
+            }
           }
-          if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") )  {
-            model_T0var_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "Mean"])
-            model_T0var_Coef[[i]] <- c(matrix(model_T0var_Coef[[i]], n.latent^2, n.latent^2)[1:n.latent, 1:n.latent])
-            names(model_T0var_Coef[[i]]) <- T0covNames
-          }
+          #if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") )  {
+          #  model_T0var_Coef[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "Mean"]);  model_T0var_Coef[[i]]
+          #  model_T0var_Coef[[i]] <- c(matrix(model_T0var_Coef[[i]], n.latent^2, n.latent^2)[1:n.latent, 1:n.latent]); model_T0var_Coef[[i]]
+          #  names(model_T0var_Coef[[i]]) <- T0covNames
+          #}
         }
-
+        #model_T0var_Coef[[i]]
 
         if (!(is.null(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "Sd"]))) {
           model_T0var_SE[[i]] <- (resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "Sd"]); model_T0var_SE[[i]]
@@ -1365,13 +1501,16 @@ ctmaInit <- function(
           } else {
             names(model_T0var_SE[[i]]) <- T0covNames
           }
-          if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") ) {
+          #if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") ) {
+          if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") | (randomIntercepts == "CINT") ) {
             model_T0var_SE[[i]] <- (resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "sd"])
             model_T0var_SE[[i]] <- c(matrix(model_T0var_SE[[i]], n.latent^2, n.latent^2)[1:n.latent, 1:n.latent])
             names(model_T0var_SE[[i]]) <- T0covNames
           }
         }
+        #model_T0var_SE[[i]]
 
+        #(!(length(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "2.5%"]) == 0))
         if (!(length(resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "2.5%"]) == 0)) {
           tmp1 <- resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "2.5%"]; tmp1
           tmp2 <- resultsSummary$parmatrices[rownames(resultsSummary$parmatrices) == "T0VAR", "97.5%"]; tmp2
@@ -1392,7 +1531,9 @@ ctmaInit <- function(
                             paste0(T0covNames, "UL"))); tmp3
             names(model_T0var_CI[[i]]) <- tmp3; model_T0var_CI[[i]]
           }
-          if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") )  {
+
+          #if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") )  {
+          if ( (randomIntercepts == TRUE) | (randomIntercepts == "MANIFEST") | (randomIntercepts == "CINT") )  {
             tmp1 <- resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "2.5%"]; tmp1
             tmp1 <- c(matrix(tmp1, n.latent^2, n.latent^2)[1:n.latent, 1:n.latent])
             tmp2 <- resultsSummary$parmatrices[resultsSummary$parmatrices[, "matrix"] == "T0cov", "97.5%"]; tmp2
@@ -1403,6 +1544,8 @@ ctmaInit <- function(
             names(model_T0var_CI[[i]]) <- tmp3; model_T0var_CI[[i]]
           }
         }
+        #model_T0var_CI[[i]]
+
 
         # CHD 19. Nov. 2023 Check if LL == UL or LL == 0  or UL == 0, indicating estimation problems (estProb)
         tmp3a <- which(tmp1 - tmp2 == 0); tmp3a
@@ -1410,10 +1553,12 @@ ctmaInit <- function(
         tmp3c <- which(tmp2 == 0); tmp3c
         tmp4 <- unique(c(tmp3a, tmp3b, tmp3c)); tmp4
         tmp5 <- grep("0var", rownames(resultsSummary$popmeans)); tmp5
+        if (length(tmp5) == 0) tmp5 <- grep("0cov", rownames(resultsSummary$popmeans))
+        tmp5
         tmp6 <- c(OpenMx::vech2full(rownames(resultsSummary$popmeans)[tmp5])); tmp6
         if (any(tmp4 != 0)) estProb[[length(estProb)+0]] <- paste0(estProb[[length(estProb)+0]], " ", paste0(tmp6[tmp4], collapse=" "))
 
-
+        #estProb
         if ( ( (indVarying == "MANIFEST") | (indVarying == 'CINT') ) & ( (randomIntercepts != "CINT") | (randomIntercepts != "MANIFEST") ) ) {
           e <- ctsem::ctExtract(studyFit[[i]])
           model_popsd_tmp <- resultsSummary$popsd
@@ -1824,6 +1969,7 @@ ctmaInit <- function(
                                       DRIFToriginal_time_scale=model_Drift_Coef_original_time_scale,
                                       DIFFUSIONoriginal_time_scale=model_Diffusion_Coef_original_time_scale),
                     ctModel = currentModel,
+                    #ProblemWithHessianEstimation = hessianWarning,
                     parameterNames=list(DRIFT=names(model_Drift_Coef[[1]]), DIFFUSION=names(model_Diffusion_Coef[[1]]), T0VAR=names(model_T0var_Coef[[1]])),
                     summary=(list(model="all drift free (het. model)",
                                   estimates=allStudiesDRIFT_effects_ext, #allStudiesDRIFT_effects_ext, = estimates that would be obtained without the scaleTime argument
@@ -1845,9 +1991,16 @@ ctmaInit <- function(
   } # end if (fit == TRUE)
 
   if (fit == FALSE) {
+    #if (hessianWarning == FALSE) {
     results <- list(summary=c("No model was fitted, only data and code were generated. See $data & $ctModel section."),
                     data = empraw,
                     ctModel = currentModel)
+    #} else {
+    #  results <- list(summary = list(message=c("No model was fitted, only data and code were generated. See $data & $ctModel section."),
+    #                                 error=hessianWarning),
+    #                  data = empraw,
+    #                  ctModel = currentModel)
+    #}
   }
   class(results) <- "CoTiMAFit"
 

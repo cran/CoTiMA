@@ -60,37 +60,37 @@
 #' which is printed if the summary function is applied to the returned object, contains "estimates", which is itself a list comprising
 #' "Estimates of Model with all Effects Invariant", "Requested Statistical Power" (which just returns the argument statisticalPower),
 #' "Power (post hoc) for Drift Effects",  "Required Sample Sizes" "Effect Sizes (based on discrete-time calcs; used for power calcs.)", and
-#' "Range of significant effects" (across which intervals effects were significant). Plot type is plot.type=c("power") and model.type="stanct"
+#' "Range of significant effects" (across which intervals effects were significant). Plot type is plot.type=c("power") and model.type="ct"
 #' ("omx" was deprecated).
 
 #'
 ctmaPower <- function(
-  ctmaInitFit=NULL,
-  activeDirectory=NULL,
-  statisticalPower=c(),
-  failSafeN =NULL,
-  failSafeP=NULL,
-  timeRange=NULL,
-  useMBESS=FALSE,
-  coresToUse=1,
-  digits=4,
-  indVarying=FALSE,
-  activateRPB=FALSE,
-  silentOverwrite=FALSE,
-  loadAllInvFit=c(),
-  saveAllInvFit=c(),
-  loadAllInvWOSingFit=c(),
-  saveAllInvWOSingFit=c(),
-  skipScaling=TRUE,
-  useSampleFraction=NULL,
-  optimize=TRUE,
-  priors=FALSE,
-  finishsamples=NULL,
-  iter=NULL,
-  chains=NULL,
-  verbose=NULL,
-  customPar=FALSE,
-  scaleTime=NULL
+    ctmaInitFit=NULL,
+    activeDirectory=NULL,
+    statisticalPower=c(),
+    failSafeN =NULL,
+    failSafeP=NULL,
+    timeRange=NULL,
+    useMBESS=FALSE,
+    coresToUse=1,
+    digits=4,
+    indVarying=FALSE,
+    activateRPB=FALSE,
+    silentOverwrite=FALSE,
+    loadAllInvFit=c(),
+    saveAllInvFit=c(),
+    loadAllInvWOSingFit=c(),
+    saveAllInvWOSingFit=c(),
+    skipScaling=TRUE,
+    useSampleFraction=NULL,
+    optimize=TRUE,
+    priors=FALSE,
+    finishsamples=NULL,
+    iter=NULL,
+    chains=NULL,
+    verbose=NULL,
+    customPar=FALSE,
+    scaleTime=NULL
 )
 
 {  # begin function definition (until end of file)
@@ -105,7 +105,15 @@ ctmaPower <- function(
       if (!(is.null(CoTiMAStanctArgs))) tmp2[tmp1] <- CoTiMAStanctArgs
       CoTiMAStanctArgs <- tmp2
 
-      if (!(is.null(scaleTime))) CoTiMAStanctArgs$scaleTime <- scaleTime
+      if (!(is.null(scaleTime))) {
+        CoTiMAStanctArgs$scaleTime <- scaleTime
+        if (scaleTime != ctmaInitFit$argumentList$scaleTime) {
+          Msg <- "The scaleTime argument provided is different from the scaleTime argument used when ctmaInitFit was fitted. I use the one you provided here. \n"
+          message(Msg)
+        }
+      }
+      if (is.null(scaleTime)) scaleTime <- 1
+
       if (!(is.null(optimize))) CoTiMAStanctArgs$optimize <- optimize
       if (!(is.null(priors))) CoTiMAStanctArgs$priors <- priors
       if (!(is.null(finishsamples))) CoTiMAStanctArgs$optimcontrol$finishsamples <- finishsamples
@@ -330,7 +338,8 @@ ctmaPower <- function(
       dataTmp2 <- suppressMessages(ctWideToLong(dataTmp, Tpoints=maxTpoints, n.manifest=n.latent, n.TIpred = (n.studies-1),
                                                 manifestNames=manifestNames))
       dataTmp3 <- suppressMessages(ctDeintervalise(dataTmp2))
-      dataTmp3[, "time"] <- dataTmp3[, "time"] * CoTiMAStanctArgs$scaleTime
+      #dataTmp3[, "time"] <- dataTmp3[, "time"] * CoTiMAStanctArgs$scaleTime
+      dataTmp3[, "time"] <- dataTmp3[, "time"] * scaleTime
       # eliminate rows where ALL latents are NA
       dataTmp3 <- dataTmp3[, ][ apply(dataTmp3[, paste0("V", 1:n.latent)], 1, function(x) sum(is.na(x)) != n.latent ), ]
       datalong_all <- dataTmp3
@@ -367,7 +376,8 @@ ctmaPower <- function(
                                     digits=digits,
                                     coresToUse=coresToUse,
                                     indVarying=indVarying,
-                                    scaleTime=CoTiMAStanctArgs$scaleTime,
+                                    scaleTime=scaleTime,
+                                    #scaleTime=CoTiMAStanctArgs$scaleTime,
                                     optimize=optimize,
                                     priors=priors,
                                     finishsamples=finishsamples,
@@ -756,9 +766,16 @@ ctmaPower <- function(
             effectSizes[k, (n.latent^2-n.latent+1-counter)] <- beta[j2, j1]; effectSizes[k, (n.latent^2-n.latent+1-counter)]
 
             # R2 without j (cross effect) in terms of Kelley & Maxwell 2008
-            model.wo.fit <- lavaan::sem(unlist(model.wo[[counter]]),
-                                        sample.cov = implCov[[k+1]],
-                                        sample.nobs = sample.nobs)
+            if (length(loadAllInvWOSingFit) > 0) {
+              model.wo.fit <- readRDS(paste0(activeDirectory, loadAllInvWOSingFit, "_", counter, "_", k,  ".rds"))
+            } else {
+              model.wo.fit <- lavaan::sem(unlist(model.wo[[counter]]),
+                                          sample.cov = implCov[[k+1]],
+                                          sample.nobs = sample.nobs)
+            }
+            # CHD 5.3.2025
+            if (length(saveAllInvWOSingFit) > 0) saveRDS(model.wo.fit, paste0(activeDirectory, saveAllInvWOSingFit, "_", counter, "_", k,".rds"))
+
             tmp <- lavaan::inspect(model.wo.fit, "est"); tmp
             R2.j <- 1 - tmp$psi[j1,j1]; R2.j
 
@@ -822,13 +839,13 @@ ctmaPower <- function(
   # deactivated on 2.6.2023
   skip <- 1
   if (skip != 1) {
-  for (l in length(listPowerAlpha05):1) {
-    tmp1 <- apply(listPowerAlpha05[[l]], 2, mean, na.rm=TRUE); tmp1
-    (round(tmp1[2], 4) == .0250)
-    if (round(tmp1[2], 4) == .0250) listPowerAlpha05[[l]] <- NULL
-    tmp1 <- apply(listPowerAlpha01[[l]], 2, mean, na.rm=TRUE); tmp1
-    if (round(tmp1[2], 4) == .0050) listPowerAlpha01[[l]] <- NULL
-  }
+    for (l in length(listPowerAlpha05):1) {
+      tmp1 <- apply(listPowerAlpha05[[l]], 2, mean, na.rm=TRUE); tmp1
+      (round(tmp1[2], 4) == .0250)
+      if (round(tmp1[2], 4) == .0250) listPowerAlpha05[[l]] <- NULL
+      tmp1 <- apply(listPowerAlpha01[[l]], 2, mean, na.rm=TRUE); tmp1
+      if (round(tmp1[2], 4) == .0050) listPowerAlpha01[[l]] <- NULL
+    }
   }
 
   # Table of required sample sizes for range of different time lags (a priori power)
@@ -974,7 +991,7 @@ ctmaPower <- function(
   allInvModelFit$resultsSummary <- allInvModelFitSummary
 
   results <- list(activeDirectory=activeDirectory,
-                  plot.type=c("power"), model.type="stanct", #model.type="mx",
+                  plot.type=c("power"), model.type="ct", #model.type="mx",
                   coresToUse=coresToUse, n.studies=1,
                   n.latent=n.latent,
                   studyList=ctmaInitFit$studyList, studyFitList=allInvModelFit,
@@ -982,6 +999,7 @@ ctmaPower <- function(
                   statisticsList=ctmaInitFit$statisticsList,
                   modelResults=list(DRIFT=DRIFT, DIFFUSION=DIFFUSION, T0VAR=T0VAR, CINT=NULL),
                   parameterNames=ctmaInitFit$parameterNames,
+                  scaleTime=scaleTime,
                   summary=list(model="Analysis of Statistical Power and Required Sample Sizes",
                                estimates=list("Estimates of Model with all Effects Invariant"=round(homAll_effects, digits),
                                               "Requested Statistical Power"=statisticalPower,
